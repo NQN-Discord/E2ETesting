@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "build"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "discord_py_e2e"
+version = "0.0.1"
+description = "E2E testing for discord.py using Behave"
+requires-python = ">=3.11"
+readme = "README.md"
+
+dependencies = [
+    "discord.py >= 2.4.0",
+    "behave >= 1.2.6",
+    "hypothesis",
+    "rabbit_helper@git+https://github.com/NQN-Discord/rabbit_helper.git@67be14034291bcca666d266d5de234196a3dd1bd"
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
