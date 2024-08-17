@@ -18,11 +18,24 @@ if TYPE_CHECKING:
 class ChannelBuilder:
     def __init__(self, ctx: Context):
         self._ctx = ctx
-        self._filters: List[Callable[[Context, GuildChannel], bool]] = []
+        self._filters: List[Callable[[GuildChannel], bool]] = []
         self._channel = None
 
+    def reset_channel(self):
+        self._channel = None
+        self._filters = []
+
     @classmethod
-    def _add_filter_to_ctx(cls, ctx: Context, filter_func: Callable[[Context, GuildChannel], bool]):
+    def reset_ctx_channel(cls, ctx: Context):
+        try:
+            ctx._channel_builder
+        except KeyError:
+            pass
+        else:
+            ctx._channel_builder.reset_channel()
+
+    @classmethod
+    def _add_filter_to_ctx(cls, ctx: Context, filter_func: Callable[[GuildChannel], bool]):
         if not hasattr(ctx.__class__, "channel"):
             ctx.__class__.channel = property(lambda self: self._channel_builder())
 
@@ -33,7 +46,7 @@ class ChannelBuilder:
 
         ctx._channel_builder._add_filter(filter_func)
 
-    def _add_filter(self, filter_func: Callable[[Context, GuildChannel], bool]):
+    def _add_filter(self, filter_func: Callable[[GuildChannel], bool]):
         assert self._channel is None
         self._filters.append(filter_func)
 
@@ -46,12 +59,20 @@ class ChannelBuilder:
                 self._channel = channel
                 return channel
 
+    def verify_filters_can_match(self) -> bool:
+        for channel in self._ctx.guild.channels:
+            if all(filter_func(channel) for filter_func in self._filters):
+                return True
+        return False
+
 
 @parse.with_pattern(r"\w+ channel")
 def _channel_type(channel_type: str) -> Callable[[GuildChannel], bool]:
     channel_type = channel_type.removesuffix(" channel")
 
-    return lambda channel: channel.type.name == channel_type
+    def inner(channel: GuildChannel) -> bool:
+        return channel.type.name == channel_type
+    return inner
 
 
 behave.register_type(channel=_channel_type)
@@ -61,3 +82,4 @@ behave.register_type(channel=_channel_type)
 @async_run_until_complete
 async def step_user_in_channel(context: Context, channel_type: Callable[[GuildChannel], bool]):
     ChannelBuilder._add_filter_to_ctx(context, channel_type)
+    assert context._channel_builder.verify_filters_can_match(), "No channels match!"
