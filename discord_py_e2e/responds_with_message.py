@@ -6,7 +6,11 @@ from behave.api.async_step import async_run_until_complete
 @async_run_until_complete
 async def step_bot_responds(context):
     def _check(m):
-        return m.channel.id == command_message.channel.id and m.id > command_message.id and m.author.id == context.bot.user.id
+        return (
+            m.channel.id == command_message.channel.id
+            and m.id > command_message.id
+            and m.author.id == context.bot.user.id
+        )
 
     cached_messages = context.runner_bot.cached_messages
     command_message = context.command_message
@@ -14,5 +18,9 @@ async def step_bot_responds(context):
     if response is None:
         response = await context.runner_bot.wait_for("message", check=_check, timeout=3)
 
-    context.bot_response = response
     assert response is not None
+    raw_msg_with_components = await context.bot.http.get_message(channel_id=response.channel.id, message_id=response.id)
+    assert raw_msg_with_components
+
+    context.bot_response = response
+    context.raw_bot_response = raw_msg_with_components

@@ -10,6 +10,7 @@ from discord import Guild, Client, Message
 
 if TYPE_CHECKING:
     from discord.guild import GuildChannel
+    from discord.types.message import Message as RawMessage
     from discord_py_e2e.setup_rabbitmq import GatewayRabbit
 
 
@@ -25,6 +26,7 @@ class Context(BehaveContext):
     runner_bot: Client
     command_message: Message
     bot_response: Message
+    raw_bot_response: RawMessage
 
     webserver: web.Application
     rabbit: GatewayRabbit
