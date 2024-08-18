@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from logging import getLogger
 
 from behave import *
 from behave.api.async_step import async_run_until_complete
-from discord import Message, Member
+from discord import Message, Member, File
+from nqn_common.dpy.components.context.base import InteractionContext
 from nqn_common.dpy.components.context.component import ComponentContext
 
 if TYPE_CHECKING:
@@ -25,7 +26,8 @@ async def press_button(context, custom_id: str):
     assert matched is not None, list(get_buttons(raw_message))
     assert not matched.get("disabled", False)
     interaction = build_button_interaction(context.bot.user.id, context.bot_response, raw_message, matched["custom_id"], context.guild.me)
-    await context.bot.rabbit.parse_interaction_create_0(interaction)
+    task = await context.bot.rabbit.parse_interaction_create_0(interaction)
+    await task
 
 
 @then("there exist buttons with custom ids")
@@ -114,8 +116,28 @@ def patch_interaction_handler():
     async def edit(self, content: str = None, *, message_id=None, **fields):
         if message_id is None:
             message_id = self.message.id
+        if "embed" in fields and "embeds" in fields:
+            embed = fields.pop("embed")
+            if embed is not None:
+                fields["embeds"] = [embed]
+
         channel = self.message.channel
         msg = channel.get_partial_message(message_id)
         await msg.edit(content=content, **fields)
 
+    async def _request(self, initial, message, *, files: List[File] = []):
+        if "type" not in message or message["type"] == 4:
+            if getattr(self, "_should_edit_next", False):
+                self._should_edit_next = False
+                await edit(content=message["content"], files=files, **message)
+            else:
+                raise AssertionError("Sending?")
+        elif message["type"] == 5:
+            return
+        elif message["type"] == 6:
+            self._should_edit_next = True
+            return
+        raise AssertionError("Don't know how to patch this yet!")
+
+    InteractionContext._request = _request
     ComponentContext.edit = edit
