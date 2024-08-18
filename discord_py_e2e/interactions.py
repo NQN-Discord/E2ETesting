@@ -30,7 +30,7 @@ async def press_button(context, custom_id: str):
     await task
 
 
-@then("there exist buttons with custom ids")
+@then("there exist buttons")
 @async_run_until_complete
 async def buttons_exist(context):
     buttons = list(get_buttons(context.raw_bot_response))
