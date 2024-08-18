@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
-@then("I press button with custom id '{custom_id}'")
+@then("I press a button with custom id '{custom_id}'")
 @async_run_until_complete
 async def press_button(context, custom_id: str):
     raw_message = context.raw_bot_response
@@ -33,14 +33,24 @@ async def press_button(context, custom_id: str):
 @then("there exist buttons with custom ids")
 @async_run_until_complete
 async def buttons_exist(context):
-    button_custom_ids = [b["custom_id"] for b in get_buttons(context.raw_bot_response)]
-    log.info("Found custom ids: %s", button_custom_ids)
+    buttons = list(get_buttons(context.raw_bot_response))
+    button_map = {}
+    log.info("Found custom ids: %s", buttons)
 
     custom_ids = [row["custom_id"] for row in context.table]
-    for custom_id in button_custom_ids:
+    for button in buttons:
         for cid in custom_ids[:]:
-            if cid in custom_id:
+            if cid in button["custom_id"]:
                 custom_ids.remove(cid)
+                button_map[cid] = button
+    if "disabled" in context.table.headings:
+        for row in context.table.rows:
+            custom_id, disabled = row["custom_id"], row["disabled"]
+            assert disabled in ("true", "false")
+            disabled = disabled == "true"
+            button = button_map[custom_id]
+            assert button.get("disabled", False) == disabled
+
     assert not custom_ids, custom_ids
 
 
