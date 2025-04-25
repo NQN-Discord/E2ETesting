@@ -1,7 +1,7 @@
 import os
 
 from .utils import generate_snowflake
-from .given_run import step_run_command
+from .given_run import step_run_command, step_arg_emote, step_arg_value
 from .channel import step_user_in_channel, ChannelBuilder
 from .responds_with_message import step_bot_responds, add_edit_handler
 from .interactions import press_button, buttons_exist, patch_interaction_handler
@@ -27,6 +27,7 @@ async def before_all(context):
 
 
 def before_scenario(context):
+    context.args = {}
     context.message_edit_times = []
     context.bot_response = None
     context.raw_bot_response = None

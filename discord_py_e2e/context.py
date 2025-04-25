@@ -3,7 +3,7 @@ from __future__ import annotations
 from asyncio import AbstractEventLoop
 from contextvars import ContextVar
 from datetime import datetime
-from typing import TYPE_CHECKING, Awaitable, Callable, List
+from typing import TYPE_CHECKING, Awaitable, Callable, List, Dict
 
 from aiohttp import web
 from behave.runner import Context as BehaveContext
@@ -30,6 +30,7 @@ class Context(BehaveContext):
     rabbit: GatewayRabbit
     async_cleanup_fns: List[Callable[[Context], Awaitable[None]]]
 
+    args: Dict[str, str]
     command_message: Message
     bot_response: Message
     raw_bot_response: RawMessage
