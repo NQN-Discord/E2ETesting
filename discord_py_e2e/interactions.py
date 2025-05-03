@@ -6,6 +6,7 @@ from logging import getLogger
 from behave import *
 from behave.api.async_step import async_run_until_complete
 from discord import Message, Member, File
+from discord.http import MultipartParameters
 from nqn_common.dpy.components.context.base import InteractionContext
 from nqn_common.dpy.components.context.component import ComponentContext
 
@@ -25,7 +26,13 @@ async def press_button(context, custom_id: str):
     matched = next((button for button in buttons if custom_id in button["custom_id"]), None)
     assert matched is not None, list(get_buttons(raw_message))
     assert not matched.get("disabled", False)
-    interaction = build_button_interaction(context.bot.user.id, context.bot_response, raw_message, matched["custom_id"], context.guild.me)
+    interaction = build_button_interaction(
+        context.bot.user.id,
+        context.bot_response,
+        raw_message,
+        matched["custom_id"],
+        context.guild.me,
+    )
     task = await context.bot.rabbit.parse_interaction_create_0(interaction)
     await task
 
@@ -60,7 +67,9 @@ def get_buttons(raw_message: RawMessage):
     return buttons
 
 
-def build_button_interaction(bot_id: int, message: Message, raw_message: RawMessage, custom_id: str, me: Member) -> MessageComponentInteraction:
+def build_button_interaction(
+    bot_id: int, message: Message, raw_message: RawMessage, custom_id: str, me: Member
+) -> MessageComponentInteraction:
     user = {
         "id": me.id,
         "username": me.name,
@@ -94,7 +103,7 @@ def build_button_interaction(bot_id: int, message: Message, raw_message: RawMess
         "last_message_id": None,
         "position": message.channel.position,
         "slowmode_delay": message.channel.slowmode_delay,
-        "permission_overwrites": [o._asdict() for o in message.channel._overwrites]
+        "permission_overwrites": [o._asdict() for o in message.channel._overwrites],
     }
     if hasattr(message.channel, "bitrate"):
         channel["bitrate"] = message.channel.bitrate
@@ -112,13 +121,10 @@ def build_button_interaction(bot_id: int, message: Message, raw_message: RawMess
         "channel_id": message.channel.id,
         "channel": channel,
         "authorizing_integration_owners": {"0": 1},
-        "data": {
-            "component_type": 2,
-            "custom_id": custom_id
-        },
+        "data": {"component_type": 2, "custom_id": custom_id},
         "message": raw_message,
         "user": user,
-        "member": member
+        "member": member,
     }
 
 
@@ -139,7 +145,13 @@ def patch_interaction_handler():
         if "type" not in message or message["type"] == 4:
             if getattr(self, "_should_edit_next", False):
                 self._should_edit_next = False
-                await edit(content=message["content"], files=files, **message)
+                if not self.message.flags.ephemeral and (message.get("flags", 0) & 64 != 0):
+                    # Ephemeral send on top of regular send
+                    params = MultipartParameters(payload=message, multipart=[], files=files)
+                    return await self.bot.http.send_message(self.channel.id, params=params)
+                else:
+                    assert not files
+                    return await edit(self, **message)
             else:
                 raise AssertionError("Sending?")
         elif message["type"] == 5:
