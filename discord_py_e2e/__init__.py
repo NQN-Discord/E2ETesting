@@ -6,6 +6,7 @@ from .channel import step_user_in_channel, ChannelBuilder
 from .responds_with_message import step_bot_responds, add_edit_handler
 from .interactions import press_button, buttons_exist, patch_interaction_handler
 from .message_is_edited import step_message_is_edited
+from .message_content import step_bot_response_contains, step_bot_response_equals, step_bot_response_matches_table
 from .setup_rabbitmq import setup_rabbitmq
 from .setup_bot import setup_bot
 from .context import _ctx
