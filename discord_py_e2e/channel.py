@@ -41,7 +41,7 @@ class ChannelBuilder:
 
         try:
             ctx._channel_builder
-        except KeyError:
+        except AttributeError:
             ctx._channel_builder = cls(ctx)
 
         ctx._channel_builder._add_filter(filter_func)
