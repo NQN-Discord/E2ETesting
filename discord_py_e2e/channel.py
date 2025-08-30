@@ -29,7 +29,7 @@ class ChannelBuilder:
     def reset_ctx_channel(cls, ctx: Context):
         try:
             ctx._channel_builder
-        except KeyError:
+        except AttributeError:
             pass
         else:
             ctx._channel_builder.reset_channel()
@@ -72,6 +72,7 @@ def _channel_type(channel_type: str) -> Callable[[GuildChannel], bool]:
 
     def inner(channel: GuildChannel) -> bool:
         return channel.type.name == channel_type
+
     return inner
 
 
