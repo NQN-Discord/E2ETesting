@@ -114,6 +114,7 @@ def build_button_interaction(
         "type": 3,
         "id": 1,
         "application_id": bot_id,
+        "attachment_size_limit": 8_000_000,
         "token": "token",
         "version": 1,
         "guild_id": message.guild.id,
