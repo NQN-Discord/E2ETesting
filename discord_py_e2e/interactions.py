@@ -6,9 +6,6 @@ from logging import getLogger
 from behave import *
 from behave.api.async_step import async_run_until_complete
 from discord import Message, Member, File
-from discord.http import MultipartParameters
-from nqn_common.dpy.components.context.base import InteractionContext
-from nqn_common.dpy.components.context.component import ComponentContext
 
 if TYPE_CHECKING:
     from discord.types.message import Message as RawMessage
@@ -16,6 +13,13 @@ if TYPE_CHECKING:
 
 
 log = getLogger(__name__)
+
+
+async def run_interaction(interaction):
+    from __main__ import bot
+
+    task = await bot.rabbit.parse_interaction_create_0(interaction)
+    await task
 
 
 @then("I press a button with custom id '{custom_id}'")
@@ -27,14 +31,13 @@ async def press_button(context, custom_id: str):
     assert matched is not None, list(get_buttons(raw_message))
     assert not matched.get("disabled", False)
     interaction = build_button_interaction(
-        context.bot.user.id,
+        context.nqn_id,
         context.bot_response,
         raw_message,
         matched["custom_id"],
         context.guild.me,
     )
-    task = await context.bot.rabbit.parse_interaction_create_0(interaction)
-    await task
+    await context.evaluator.evaluate(run_interaction, interaction=interaction)
 
 
 @then("there exist buttons")
@@ -130,6 +133,10 @@ def build_button_interaction(
 
 
 def patch_interaction_handler():
+    from discord.http import MultipartParameters
+    from nqn_common.dpy.components.context.base import InteractionContext
+    from nqn_common.dpy.components.context.component import ComponentContext
+
     async def edit(self, content: str = None, *, message_id=None, **fields):
         if message_id is None:
             message_id = self.message.id

@@ -11,9 +11,7 @@ from discord_py_e2e.context import Context
 async def step_bot_responds(context):
     def _check(m):
         return (
-            m.channel.id == command_message.channel.id
-            and m.id > command_message.id
-            and m.author.id == context.bot.user.id
+            m.channel.id == command_message.channel.id and m.id > command_message.id and m.author.id == context.nqn_id
         )
 
     cached_messages = context.runner_bot.cached_messages
@@ -23,7 +21,9 @@ async def step_bot_responds(context):
         response = await context.runner_bot.wait_for("message", check=_check, timeout=3)
 
     assert response is not None
-    raw_msg_with_components = await context.bot.http.get_message(channel_id=response.channel.id, message_id=response.id)
+    raw_msg_with_components = await context.runner_bot.http.get_message(
+        channel_id=response.channel.id, message_id=response.id
+    )
     assert raw_msg_with_components
 
     logging.info(f"Received message with content: {response.content}")

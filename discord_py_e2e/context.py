@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Awaitable, Callable, List, Dict
 from aiohttp import web
 from behave.runner import Context as BehaveContext
 from discord import Guild, Client, Message
+from discord_py_e2e.debugger.evalutation import EvaluationClient
 
 if TYPE_CHECKING:
     from discord.guild import GuildChannel
@@ -23,8 +24,9 @@ class Context(BehaveContext):
     loop: AbstractEventLoop
     guild: Guild
     channel: GuildChannel
-    bot: Client
     runner_bot: Client
+    nqn_id: int
+    evaluator: EvaluationClient
 
     webserver: web.Application
     rabbit: GatewayRabbit

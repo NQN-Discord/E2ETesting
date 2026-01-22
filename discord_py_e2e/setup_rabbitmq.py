@@ -12,11 +12,7 @@ if TYPE_CHECKING:
 class GatewayRabbit(Rabbit):
     @Rabbit.sender("COMMAND", 0)
     def send_command(self, message: MessageCreateEvent, prefix: str, unprefixed_content: str):
-        return {
-            "message": message,
-            "server_prefix": prefix,
-            "unprefixed_content": unprefixed_content
-        }
+        return {"message": message, "server_prefix": prefix, "unprefixed_content": unprefixed_content}
 
     @Rabbit.sender("GUILD_CREATE", 0)
     def send_guild_create(self, guild: GuildCreateEvent):
@@ -32,4 +28,3 @@ async def setup_rabbitmq(context) -> GatewayRabbit:
     rabbit = GatewayRabbit(uri)
     await rabbit.connect()
     return rabbit
-

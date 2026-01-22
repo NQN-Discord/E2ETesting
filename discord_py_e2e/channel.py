@@ -10,7 +10,6 @@ from behave.api.async_step import async_run_until_complete
 
 from discord_py_e2e.context import Context
 
-
 if TYPE_CHECKING:
     from discord.guild import GuildChannel
 
