@@ -9,13 +9,17 @@ from discord_py_e2e.context import Context
 @then("the bot responds with a message")
 @async_run_until_complete
 async def step_bot_responds(context):
+    message_to_check_for = context.bot_response or context.command_message
+
     def _check(m):
         return (
-            m.channel.id == command_message.channel.id and m.id > command_message.id and m.author.id == context.nqn_id
+            m.channel.id == message_to_check_for.channel.id
+            and m.id > message_to_check_for.id
+            and m.author.id == context.nqn_id
+            and not (m.content.startswith("[MODAL: "))
         )
 
     cached_messages = context.runner_bot.cached_messages
-    command_message = context.command_message
     response = next((m for m in cached_messages if _check(m)), None)
     if response is None:
         response = await context.runner_bot.wait_for("message", check=_check, timeout=3)

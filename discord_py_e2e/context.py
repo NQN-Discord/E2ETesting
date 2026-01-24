@@ -24,6 +24,7 @@ class Context(BehaveContext):
     loop: AbstractEventLoop
     guild: Guild
     channel: GuildChannel
+    manager_bot: Client
     runner_bot: Client
     nqn_id: int
     evaluator: EvaluationClient

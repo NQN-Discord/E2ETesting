@@ -6,6 +6,7 @@ from logging import getLogger
 from behave import *
 from behave.api.async_step import async_run_until_complete
 from discord import Message, Member, File
+from discord.abc import GuildChannel
 
 if TYPE_CHECKING:
     from discord.types.message import Message as RawMessage
@@ -70,9 +71,19 @@ def get_buttons(raw_message: RawMessage):
     return buttons
 
 
-def build_button_interaction(
-    bot_id: int, message: Message, raw_message: RawMessage, custom_id: str, me: Member
-) -> MessageComponentInteraction:
+def _build_interaction_base(bot_id: int, channel: GuildChannel, me: Member, interaction_type: int) -> dict:
+    """
+    Build the base structure for an interaction.
+
+    Args:
+        bot_id: The ID of the bot
+        channel: The channel where the interaction was triggered
+        me: The member submitting the interaction
+        interaction_type: The type of interaction
+
+    Returns:
+        A base interaction object
+    """
     user = {
         "id": me.id,
         "username": me.name,
@@ -92,50 +103,109 @@ def build_button_interaction(
         "premium_since": None,
         "pending": False,
         "communication_disabled_until": me.timed_out_until and me.timed_out_until.isoformat(),
-        "roles": me._roles,
+        "roles": list(me._roles),
         "joined_at": me.joined_at.isoformat(),
     }
     if me._permissions:
         member["permissions"] = me._permissions
-    channel = {
-        "id": message.channel.id,
-        "type": message.channel.type.value,
-        "name": message.channel.name,
-        "nsfw": message.channel.nsfw,
-        "parent_id": message.channel.category_id,
+    channel_dict = {
+        "id": str(channel.id),
+        "guild_id": str(channel.guild.id),
+        "type": channel.type.value,
+        "name": channel.name,
+        "nsfw": channel.nsfw,
+        "parent_id": str(channel.category_id),
         "last_message_id": None,
-        "position": message.channel.position,
-        "slowmode_delay": message.channel.slowmode_delay,
-        "permission_overwrites": [o._asdict() for o in message.channel._overwrites],
+        "position": channel.position,
+        "rate_limit_per_user": channel.slowmode_delay,
+        "permissions": str(channel.permissions_for(me).value),
     }
-    if hasattr(message.channel, "bitrate"):
-        channel["bitrate"] = message.channel.bitrate
-    if hasattr(message.channel, "user_limit"):
-        channel["user_limit"] = message.channel.user_limit
+    if hasattr(channel, "flags"):
+        channel_dict["flags"] = channel._flags
+    if hasattr(channel, "bitrate"):
+        channel_dict["bitrate"] = channel.bitrate
+    if hasattr(channel, "user_limit"):
+        channel_dict["user_limit"] = channel.user_limit
 
     return {
-        "type": 3,
-        "id": 1,
-        "application_id": bot_id,
+        "type": interaction_type,
+        "id": str(1),
+        "application_id": str(bot_id),
         "attachment_size_limit": 8_000_000,
         "token": "token",
         "version": 1,
-        "guild_id": message.guild.id,
+        "guild_id": str(channel.guild.id),
         "guild": None,
-        "channel_id": message.channel.id,
-        "channel": channel,
+        "channel_id": str(channel.id),
+        "channel": channel_dict,
         "authorizing_integration_owners": {"0": 1},
-        "data": {"component_type": 2, "custom_id": custom_id},
-        "message": raw_message,
         "user": user,
         "member": member,
     }
 
 
+def build_button_interaction(
+    bot_id: int, message: Message, raw_message: RawMessage, custom_id: str, me: Member
+) -> MessageComponentInteraction:
+    """
+    Build a button interaction.
+
+    Args:
+        bot_id: The ID of the bot
+        message: The message that triggered the interaction
+        raw_message: The raw message data
+        custom_id: The custom ID of the button
+        me: The member submitting the interaction
+
+    Returns:
+        A button interaction object
+    """
+    interaction = _build_interaction_base(bot_id, message.channel, me, 3)  # 3 = MessageComponent
+
+    # Add button-specific data
+    interaction["data"] = {"component_type": 2, "custom_id": custom_id}
+    interaction["message"] = raw_message
+
+    return interaction
+
+
+def build_modal_interaction(
+    bot_id: int, channel: GuildChannel, raw_message: RawMessage, custom_id: str, components: list[dict], me: Member
+) -> dict:
+    """
+    Build a modal submit interaction.
+
+    Args:
+        bot_id: The ID of the bot
+        channel: The channel where the modal was triggered
+        custom_id: The custom ID of the modal
+        components: A dictionary of custom_id -> value pairs for the modal components
+        me: The member submitting the interaction
+
+    Returns:
+        A modal submit interaction object
+    """
+    interaction = _build_interaction_base(bot_id, channel, me, 5)  # 5 = ModalSubmit
+
+    interaction["data"] = {
+        "custom_id": custom_id,
+        "components": components,
+    }
+    interaction["message"] = raw_message
+
+    return interaction
+
+
 def patch_interaction_handler():
+    import uuid, json
     from discord.http import MultipartParameters
+
     from nqn_common.dpy.components.context.base import InteractionContext
     from nqn_common.dpy.components.context.component import ComponentContext
+
+    from __main__ import bot
+
+    bot._modals = {}
 
     async def edit(self, content: str = None, *, message_id=None, **fields):
         if message_id is None:
@@ -148,6 +218,10 @@ def patch_interaction_handler():
         channel = self.message.channel
         msg = channel.get_partial_message(message_id)
         await msg.edit(content=content, **fields)
+
+    async def defer(self, *, transient: bool = False, ephemeral: bool = False):
+        if not self._has_sent_initial:
+            return await self.channel.send(content="<Loading...>")
 
     async def _request(self, initial, message, *, files: List[File] = []):
         if "type" not in message or message["type"] == 4:
@@ -167,7 +241,18 @@ def patch_interaction_handler():
         elif message["type"] == 6:
             self._should_edit_next = True
             return
-        raise AssertionError("Don't know how to patch this yet!")
+        elif message["type"] == 9:
+            modal_id = str(uuid.uuid4())
+            modal_data = message["data"]
+            bot._modals[modal_id] = modal_data
+
+            modal_message = (
+                f"[MODAL: {modal_id}]\n>>> Data:\n```json\n{json.dumps(modal_data, indent=2, sort_keys=True)}\n```"
+            )
+            await self.channel.send(modal_message)
+            return
+        raise AssertionError("Don't know how to patch this yet!", repr(message))
 
     InteractionContext._request = _request
+    InteractionContext.defer = defer
     ComponentContext.edit = edit

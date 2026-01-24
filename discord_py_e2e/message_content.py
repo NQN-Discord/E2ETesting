@@ -1,5 +1,6 @@
 from behave import *
 from behave.api.async_step import async_run_until_complete
+from discord import NotFound
 
 
 @then('the bot response contains "{text}"')
@@ -23,6 +24,45 @@ async def step_bot_response_contains(context, text):
         raise AssertionError(
             f"Expected text '{text}' not found in bot response: '{context.bot_response.content}' and no raw data available"
         )
+
+
+@then("{{{message}}} is deleted")
+@async_run_until_complete
+async def step_message_is_deleted(context, message: str):
+    """
+    Check if a message has been deleted.
+    
+    Args:
+        context: The behave context
+        message: The name of the message variable in context.args
+    """
+    message_obj = context.args.get(message)
+    assert message_obj is not None, f"No message found with name '{message}' in context.args"
+    
+    try:
+        await message_obj.channel.fetch_message(message_obj.id)
+        raise AssertionError(f"Message {message} was not deleted")
+    except NotFound:
+        pass
+
+
+@then("{{{message}}} is not deleted")
+@async_run_until_complete
+async def step_message_is_not_deleted(context, message: str):
+    """
+    Check if a message has not been deleted.
+    
+    Args:
+        context: The behave context
+        message: The name of the message variable in context.args
+    """
+    message_obj = context.args.get(message)
+    assert message_obj is not None, f"No message found with name '{message}' in context.args"
+    
+    try:
+        await message_obj.channel.fetch_message(message_obj.id)
+    except NotFound:
+        raise AssertionError(f"Message {message} was deleted")
 
 
 @then('the bot response equals "{text}"')
