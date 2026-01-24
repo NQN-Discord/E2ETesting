@@ -26,10 +26,13 @@ from .message_content import (
     step_bot_response_matches_table,
     step_message_is_deleted,
     step_message_is_not_deleted,
+    step_channel_has_message_with_content,
+    step_channel_has_message_containing,
 )
 from .modals import bot_responds_with_modal, fill_in_modal, check_unhandled_modals
 from .setup_rabbitmq import setup_rabbitmq
 from .setup_bot import setup_bot, setup_manager
+from .thread import step_thread_created, step_thread_has_title
 from .context import _ctx
 from .permissions import step_have_permission, step_have_permissions, step_bot_has_permission, step_bot_has_permissions
 

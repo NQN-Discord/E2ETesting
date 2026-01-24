@@ -2,6 +2,8 @@ from behave import *
 from behave.api.async_step import async_run_until_complete
 from discord import NotFound
 
+from discord_py_e2e.context import Context
+
 
 @then('the bot response contains "{text}"')
 @async_run_until_complete
@@ -101,3 +103,47 @@ async def step_bot_response_matches_table(context):
             raise AssertionError(
                 f"Expected text '{text}' not found in bot response: '{context.bot_response.content}' and no raw data available"
             )
+
+
+@then("there is a message in {{{channel}}} with content '{content}'")
+@async_run_until_complete
+async def step_channel_has_message_with_content(context, channel: str, content: str):
+    """
+    Check if a channel contains a message with the specified content.
+    
+    Args:
+        context: The behave context
+        channel: The name of the channel variable in context.args
+        content: The expected content of the message
+    """
+    messages = await _get_messages_from_channel(context, channel)
+    
+    # Check if any message has the exact content
+    assert any(m.content == content for m in messages), f"No message found in channel {channel} with content '{content}'"
+
+
+@then("there is a message in {{{channel}}} containing '{text}'")
+@async_run_until_complete
+async def step_channel_has_message_containing(context, channel: str, text: str):
+    """
+    Check if a channel contains a message that contains the specified text.
+    
+    Args:
+        context: The behave context
+        channel: The name of the channel variable in context.args
+        text: The text to look for in messages
+    """
+    
+    messages = await _get_messages_from_channel(context, channel)
+    
+    # Check if any message contains the text
+    assert any(text in m.content for m in messages), f"No message found in channel {channel} containing '{text}'"
+
+
+async def _get_messages_from_channel(context: Context, channel: str):
+    channel_obj = context.args.get(channel)
+    assert channel_obj is not None, f"No channel found with name '{channel}' in context.args"
+    
+    # Fetch messages in the channel
+    messages = [message async for message in channel_obj.history(limit=50)]
+    return messages
