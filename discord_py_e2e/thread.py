@@ -2,8 +2,50 @@ from __future__ import annotations
 
 from behave import *
 from behave.api.async_step import async_run_until_complete
+from discord import Thread, TextChannel, ForumChannel, ChannelType
 
 from discord_py_e2e.context import Context
+
+
+async def _get_thread(context: Context, thread_type: str) -> Thread:
+    channel_obj = context.manager_bot.get_guild(context.guild.id).get_channel(context.channel.id)
+
+    # Ensure the channel is a text channel or forum channel that can have threads
+    assert isinstance(channel_obj, (TextChannel, ForumChannel)), f"Channel {channel_obj.name} does not support threads"
+
+    thread_type_enum = ChannelType.public_thread if thread_type.lower() == "public" else ChannelType.private_thread
+
+    # Check for existing threads in the channel of the specified type
+    existing_threads = [t for t in channel_obj.threads if t.type == thread_type_enum]
+
+    thread_obj = None
+
+    # Try to find an existing thread of the correct type
+    if existing_threads:
+        # Use the first available thread of the correct type
+        thread_obj = existing_threads[0]
+
+        # If the thread is archived, unarchive it
+        if thread_obj.archived:
+            # Use the edit method to unarchive the thread
+            await thread_obj.edit(archived=False)
+
+    # If no existing thread was found or could be unarchived, create a new one
+    if thread_obj is None:
+        if isinstance(channel_obj, ForumChannel):
+            assert thread_type_enum == ChannelType.public_thread, "Forums cannot have private threads"
+            thread_obj = await channel_obj.create_thread(
+                name=f"{thread_type} thread",
+                content="Thread for testing",
+            )
+        else:
+            # For text channels, create a thread of the specified type
+            thread_obj = await channel_obj.create_thread(
+                name=f"{thread_type} thread",
+                type=thread_type_enum,
+            )
+
+    return await context.runner_bot.fetch_channel(thread_obj.id)
 
 
 @then("a new thread is created in {{{channel}}} as {{{thread}}}")

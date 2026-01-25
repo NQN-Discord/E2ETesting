@@ -2,8 +2,8 @@ import asyncio
 
 import psutil
 from debugpy.server.cli import attach_to_pid, options
-
 from discord_py_e2e.debugger.evalutation import EvaluationClient
+
 from ._io import DAPClient
 
 

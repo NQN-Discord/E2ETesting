@@ -15,8 +15,15 @@ if not hasattr(sys.modules["__main__"], "bot"):
 
 from .debugger.connection import connect_to_nqn
 from .utils import generate_snowflake
-from .given_run import step_run_command, step_arg_emote, step_arg_value
-from .channel import step_user_in_channel, ChannelBuilder
+from .given_run import (
+    step_run_command,
+    step_run_command_as,
+    step_arg_emote,
+    step_arg_value,
+    step_reply_with_command,
+    step_reply_with_command_as,
+)
+from .channel import step_user_in_channel, step_user_in_thread, ChannelBuilder
 from .responds_with_message import step_bot_responds, add_edit_handler
 from .interactions import press_button, buttons_exist, patch_interaction_handler
 from .message_is_edited import step_message_is_edited
@@ -30,6 +37,8 @@ from .message_content import (
     step_channel_has_message_containing,
 )
 from .modals import bot_responds_with_modal, fill_in_modal, check_unhandled_modals
+from .owner import step_is_owner
+from .reactions import step_message_has_reaction, step_add_reaction
 from .setup_rabbitmq import setup_rabbitmq
 from .setup_bot import setup_bot, setup_manager
 from .thread import step_thread_created, step_thread_has_title

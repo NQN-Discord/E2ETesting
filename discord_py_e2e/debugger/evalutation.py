@@ -65,7 +65,6 @@ class EvaluationClient:
             if not message["success"]:
                 self._handle_traceback(message["message"])
 
-
     def _handle_traceback(self, message: str):
         for handler in self._traceback_handlers:
             handler(message)

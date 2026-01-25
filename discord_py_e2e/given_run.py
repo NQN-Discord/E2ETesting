@@ -12,9 +12,14 @@ from discord_py_e2e.context import Context
 def format_command_args(context: Context, command: str) -> str:
     formatted_args = {}
     for key, value in context.args.items():
-        if hasattr(value, "mention"):
+        if isinstance(value, Message):
+            # Use the message ID for Message objects
+            formatted_args[key] = value.id
+        elif hasattr(value, "mention"):
+            # Use mention for mentionable objects (users, roles, channels)
             formatted_args[key] = value.mention
         else:
+            # Use the value as is for everything else
             formatted_args[key] = value
 
     return command.format(**formatted_args)
@@ -23,15 +28,47 @@ def format_command_args(context: Context, command: str) -> str:
 @given("I run '{command}'")
 @async_run_until_complete
 async def step_run_command(context: Context, command: str) -> None:
-    context.command_message = await context.channel.send(format_command_args(context, command))
+    await _run_command(context, command)
 
 
 @given("I run '{command}' as {{{message}}}")
 @async_run_until_complete
 async def step_run_command_as(context: Context, command: str, message: str) -> None:
-    sent_message: Message = await context.channel.send(format_command_args(context, command))
-    context.command_message = sent_message
-    context.args[message] = sent_message
+    await _run_command(context, command)
+    context.args[message] = context.command_message
+
+
+async def _run_command(context: Context, command: str):
+    context.command_message = await context.channel.send(format_command_args(context, command))
+
+
+@given("I reply to {{{message}}} with '{command}'")
+@async_run_until_complete
+async def step_reply_with_command(context: Context, message: str, command: str) -> None:
+    await _reply_with_command(context, message, command)
+
+
+@given("I reply to {{{message}}} with '{command}' as {{{message_2}}}")
+@async_run_until_complete
+async def step_reply_with_command_as(context: Context, message: str, command: str, message_2: str) -> None:
+    await _reply_with_command(context, message, command)
+    context.args[message_2] = context.command_message
+
+
+async def _reply_with_command(context: Context, message: str, command: str) -> None:
+    """
+    Reply to a message with a command.
+
+    Args:
+        context: The behave context
+        message: The name of the message variable in context.args to reply to
+        command: The command to send as a reply
+    """
+    message_obj = context.args.get(message)
+    assert message_obj is not None, f"No message found with name '{message}' in context.args"
+
+    formatted_command = format_command_args(context, command)
+    context.command_message = await message_obj.reply(formatted_command)
 
 
 @given("argument {{{name}}} is '{value}'")
@@ -40,7 +77,7 @@ async def step_arg_value(context: Context, name: str, value: str):
     context.args[name] = value
 
 
-@given("argument {{{name}}} is a rendered emote")
+@given("there exists a custom emote {{{name}}}")
 @async_run_until_complete
 async def step_arg_emote(context: Context, name: str):
     emoji = random.choice(context.guild.emojis)
