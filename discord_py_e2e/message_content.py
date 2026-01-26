@@ -29,6 +29,25 @@ async def step_bot_response_contains(context, text):
         )
 
 
+@then('the message does not contain "{text}"')
+@async_run_until_complete
+async def step_bot_response_does_not_contain(context, text):
+    assert (
+        context.bot_response is not None
+    ), "No bot response found. Make sure 'the bot responds with a message' step was executed before this step."
+
+    # Check if the message content does not contain the specified text
+    if context.bot_response.content and text not in context.bot_response.content:
+        return
+
+    # If not in content, check if it's in embeds or components
+    if context.raw_bot_response:
+        raw_content = str(context.raw_bot_response)
+        assert (
+            text.lower() not in raw_content.lower()
+        ), f"Unexpected text '{text}' found in bot response raw data: '{raw_content}'"
+
+
 @then("{{{message}}} is deleted")
 @async_run_until_complete
 async def step_message_is_deleted(context, message: str):
