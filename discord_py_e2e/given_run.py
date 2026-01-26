@@ -9,20 +9,27 @@ from discord import Message
 from discord_py_e2e.context import Context
 
 
-def format_command_args(context: Context, command: str) -> str:
-    formatted_args = {}
-    for key, value in context.args.items():
-        if isinstance(value, Message):
-            # Use the message ID for Message objects
-            formatted_args[key] = value.id
-        elif hasattr(value, "mention"):
-            # Use mention for mentionable objects (users, roles, channels)
-            formatted_args[key] = value.mention
-        else:
-            # Use the value as is for everything else
-            formatted_args[key] = value
+class _DotAccessDict:
+    def __init__(self, args):
+        self.args = args
 
-    return command.format(**formatted_args)
+    def __getitem__(self, key):
+        # Check if this is a dotted path
+        if "." in key:
+            obj_name, *attrs = key.split(".")  # Split on first dot
+            if obj_name in self.args:
+                obj = self.args[obj_name]
+                # Handle nested attributes (a.b.c)
+                for part in attrs:
+                    obj = getattr(obj, part)
+                return obj
+            return f"{{{key}}}"
+
+        return self.args[key]
+
+
+def format_command_args(context: Context, command: str) -> str:
+    return command.format_map(_DotAccessDict(context.args))
 
 
 @given("I run '{command}'")
@@ -81,7 +88,7 @@ async def step_arg_value(context: Context, name: str, value: str):
 @async_run_until_complete
 async def step_arg_emote(context: Context, name: str):
     emoji = random.choice(context.guild.emojis)
-    context.args[name] = str(emoji)
+    context.args[name] = emoji
 
 
 @given("argument {{{name}}} is a {channel_type} channel")
