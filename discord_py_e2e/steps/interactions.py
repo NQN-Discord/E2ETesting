@@ -8,7 +8,7 @@ from behave.api.async_step import async_run_until_complete
 from discord import Message, Member, File
 from discord.abc import GuildChannel
 
-from .context import Context
+from ..context import Context
 
 if TYPE_CHECKING:
     from discord.types.message import Message as RawMessage

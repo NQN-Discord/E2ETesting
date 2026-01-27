@@ -4,7 +4,7 @@ from behave.api.async_step import async_run_until_complete
 import random
 
 from discord_py_e2e.context import Context
-from .dotted_arg import Args
+from ..dotted_arg import Args
 
 
 @given("I run {command:args}")

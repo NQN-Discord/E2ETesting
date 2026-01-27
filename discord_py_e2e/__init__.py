@@ -15,39 +15,15 @@ if not hasattr(sys.modules["__main__"], "bot"):
 
 from .debugger.connection import connect_to_nqn
 from .dotted_arg import Args
-from .utils import generate_snowflake
 from .tag_handlers import process_tags
-from .given_run import (
-    step_run_command,
-    step_run_command_as,
-    step_arg_emote,
-    step_arg_value,
-    step_reply_with_command,
-    step_reply_with_command_as,
-)
-from .channel import step_user_in_channel, step_user_in_thread, ChannelBuilder
-from .responds_with_message import step_bot_responds, add_edit_handler
-from .interactions import press_button_custom_id, press_button_label, buttons_exist, patch_interaction_handler
-from .message_is_edited import step_message_is_edited
-from .message_content import (
-    step_bot_response_contains,
-    step_bot_response_equals,
-    step_message_is_deleted,
-    step_message_is_not_deleted,
-    step_channel_has_message_with_content,
-    step_channel_has_message_containing,
-)
-from .modals import bot_responds_with_modal, fill_in_modal, check_unhandled_modals
-from .owner import step_is_owner
-from .reactions import step_message_has_reaction, step_add_reaction
+from .channel import ChannelBuilder
+from . import steps
 from .setup_rabbitmq import setup_rabbitmq
 from .setup_bot import setup_bot, setup_manager
-from .thread import step_thread_created, step_thread_has_title
-from .context import _ctx
-from .permissions import step_have_permission, step_have_permissions, step_bot_has_permission, step_bot_has_permissions
+from .context import Context, _ctx
 
 
-async def before_all(context):
+async def before_all(context: Context):
     if not context._runner.step_registry.steps["given"]:
         _reload_all_steps()
     _ctx.set(context)
@@ -65,11 +41,11 @@ async def before_all(context):
     )
     context.guild = context.runner_bot.get_guild(int(os.environ["GUILD_ID"]))
 
-    await evaluator.evaluate(patch_interaction_handler)
+    await evaluator.evaluate(steps.interactions.patch_interaction_handler)
 
     context.bot_response = None
     context.raw_bot_response = None
-    add_edit_handler(context)
+    steps.responds_with_message.add_edit_handler(context)
 
     _add_traceback_handler(context)
 
@@ -77,7 +53,7 @@ async def before_all(context):
         context.add_cleanup(lambda: context.loop.run_until_complete(cleanup_fn(context)))
 
 
-def before_scenario(context):
+def before_scenario(context: Context):
     context.args = {}
     context.message_edit_times = []
     context.bot_response = None
@@ -88,22 +64,22 @@ def before_scenario(context):
     context.add_cleanup(lambda: context.loop.run_until_complete(asyncio.sleep(1)))
 
 
-def before_step(context):
+def before_step(context: Context):
     if context.bot_response is not None:
         context.message_edit_times.append(context.bot_response.edited_at)
 
 
-def after_scenario(context):
-    context.loop.run_until_complete(check_unhandled_modals(context))
+def after_scenario(context: Context):
+    context.loop.run_until_complete(steps.modals.check_unhandled_modals(context))
 
 
-def _add_traceback_handler(context):
+def _add_traceback_handler(context: Context):
     tb_handler = lambda tb: _traceback_handler(context, tb)
     context.evaluator.add_traceback_handler(tb_handler)
     context.add_cleanup(context.evaluator.remove_traceback_handler, tb_handler)
 
 
-def _traceback_handler(context, traceback: str):
+def _traceback_handler(context: Context, traceback: str):
     context.abort("Failed due to traceback")
 
 
@@ -117,4 +93,5 @@ def _reload_all_steps():
     # Fix for jetbrains behave plugin
     for mod_name, module in sys.modules.copy().items():
         if "discord_py_e2e." in mod_name:
+            print(mod_name)
             importlib.reload(module)
