@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Callable, Any
 from logging import getLogger
 
 from behave import *
 from behave.api.async_step import async_run_until_complete
 from discord import Message, Member, File
 from discord.abc import GuildChannel
+
+from .context import Context
 
 if TYPE_CHECKING:
     from discord.types.message import Message as RawMessage
@@ -23,12 +25,24 @@ async def run_interaction(interaction):
     await task
 
 
-@then("I press a button with custom id '{custom_id}'")
+@then("I press a button with custom id {custom_id:args}")
 @async_run_until_complete
-async def press_button(context, custom_id: str):
+async def press_button_custom_id(context: Context, custom_id: Callable[[Context], str]):
+    custom_id = custom_id(context)
+    await _press_button(context, lambda button: custom_id in button["custom_id"])
+
+
+@then("I press a button with label {label:args}")
+@async_run_until_complete
+async def press_button_label(context: Context, label: Callable[[Context], str]):
+    label = label(context)
+    await _press_button(context, lambda button: label in button["label"])
+
+
+async def _press_button(context: Context, check: Callable[[Any], bool]):
     raw_message = context.raw_bot_response
     buttons = get_buttons(raw_message)
-    matched = next((button for button in buttons if custom_id in button["custom_id"]), None)
+    matched = next((button for button in buttons if check(button)), None)
     assert matched is not None, list(get_buttons(raw_message))
     assert not matched.get("disabled", False)
     interaction = build_button_interaction(
@@ -43,7 +57,7 @@ async def press_button(context, custom_id: str):
 
 @then("there exist buttons")
 @async_run_until_complete
-async def buttons_exist(context):
+async def buttons_exist(context: Context):
     buttons = list(get_buttons(context.raw_bot_response))
     button_map = {}
     log.info("Found custom ids: %s", buttons)
@@ -235,7 +249,9 @@ def patch_interaction_handler():
                     assert not files
                     return await edit(self, **message)
             else:
-                raise AssertionError("Sending?")
+                params = MultipartParameters(payload=message, multipart=[], files=files)
+                await self._state.http.edit_message(self.channel.id, self.message.id, params=params)
+                return
         elif message["type"] == 5:
             return
         elif message["type"] == 6:

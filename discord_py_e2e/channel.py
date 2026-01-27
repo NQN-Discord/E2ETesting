@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, List, Tuple, TYPE_CHECKING
+from typing import Callable, List, TYPE_CHECKING
 
 import behave
 import parse

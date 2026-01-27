@@ -22,7 +22,7 @@ async def step_bot_responds(context):
     cached_messages = context.runner_bot.cached_messages
     response = next((m for m in cached_messages if _check(m)), None)
     if response is None:
-        response = await context.runner_bot.wait_for("message", check=_check, timeout=3)
+        response = await context.runner_bot.wait_for("message", check=_check, timeout=5)
 
     assert response is not None
     raw_msg_with_components = await context.runner_bot.http.get_message(

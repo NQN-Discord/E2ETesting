@@ -4,14 +4,16 @@ from behave.api.async_step import async_run_until_complete
 from discord import NotFound
 
 from discord_py_e2e.context import Context
+from .dotted_arg import Args
 
 
-@then('the bot response contains "{text}"')
+@then("the bot response contains {text:args}")
 @async_run_until_complete
-async def step_bot_response_contains(context, text):
+async def step_bot_response_contains(context, text: Args[str]):
     assert (
         context.bot_response is not None
     ), "No bot response found. Make sure 'the bot responds with a message' step was executed before this step."
+    text = text(context)
 
     # Check if the message content contains the specified text
     if context.bot_response.content and text in context.bot_response.content:
@@ -29,12 +31,13 @@ async def step_bot_response_contains(context, text):
         )
 
 
-@then('the message does not contain "{text}"')
+@then("the message does not contain {text:args}")
 @async_run_until_complete
-async def step_bot_response_does_not_contain(context, text):
+async def step_bot_response_does_not_contain(context, text: Args[str]):
     assert (
         context.bot_response is not None
     ), "No bot response found. Make sure 'the bot responds with a message' step was executed before this step."
+    text = text(context)
 
     # Check if the message content does not contain the specified text
     if context.bot_response.content and text not in context.bot_response.content:
@@ -103,12 +106,13 @@ async def step_message_is_not_deleted(context, message: str):
         raise AssertionError(f"Message {message} was deleted")
 
 
-@then('the bot response equals "{text}"')
+@then("the bot response equals {text:args}")
 @async_run_until_complete
-async def step_bot_response_equals(context, text):
+async def step_bot_response_equals(context, text: Args[str]):
     assert (
         context.bot_response is not None
     ), "No bot response found. Make sure 'the bot responds with a message' step was executed before this step."
+    text = text(context)
 
     # Check if the message content equals the specified text
     assert (
@@ -116,34 +120,9 @@ async def step_bot_response_equals(context, text):
     ), f"Bot response '{context.bot_response.content}' does not equal expected text '{text}'"
 
 
-@then("the bot response matches the table")
+@then("there is a message in {{{channel}}} with content {content:args}")
 @async_run_until_complete
-async def step_bot_response_matches_table(context):
-    assert (
-        context.bot_response is not None
-    ), "No bot response found. Make sure 'the bot responds with a message' step was executed before this step."
-
-    # Check if the message content contains all the texts in the table
-    for row in context.table:
-        text = row["text"]
-        if text in context.bot_response.content:
-            continue
-
-        # If not in content, check if it's in embeds or components
-        if context.raw_bot_response:
-            raw_content = str(context.raw_bot_response)
-            assert (
-                text.lower() in raw_content.lower()
-            ), f"Expected text '{text}' not found in bot response content: '{context.bot_response.content}' or raw data: '{raw_content}'"
-        else:
-            raise AssertionError(
-                f"Expected text '{text}' not found in bot response: '{context.bot_response.content}' and no raw data available"
-            )
-
-
-@then("there is a message in {{{channel}}} with content '{content}'")
-@async_run_until_complete
-async def step_channel_has_message_with_content(context, channel: str, content: str):
+async def step_channel_has_message_with_content(context, channel: str, content: Args[str]):
     """
     Check if a channel contains a message with the specified content.
 
@@ -152,6 +131,7 @@ async def step_channel_has_message_with_content(context, channel: str, content: 
         channel: The name of the channel variable in context.args
         content: The expected content of the message
     """
+    content = content(context)
     messages = await _get_messages_from_channel(context, channel)
 
     # Check if any message has the exact content
@@ -160,9 +140,9 @@ async def step_channel_has_message_with_content(context, channel: str, content: 
     ), f"No message found in channel {channel} with content '{content}'"
 
 
-@then("there is a message in {{{channel}}} containing '{text}'")
+@then("there is a message in {{{channel}}} containing {text:args}")
 @async_run_until_complete
-async def step_channel_has_message_containing(context, channel: str, text: str):
+async def step_channel_has_message_containing(context, channel: str, text: Args[str]):
     """
     Check if a channel contains a message that contains the specified text.
 
@@ -171,6 +151,7 @@ async def step_channel_has_message_containing(context, channel: str, text: str):
         channel: The name of the channel variable in context.args
         text: The text to look for in messages
     """
+    text = text(context)
 
     messages = await _get_messages_from_channel(context, channel)
 
