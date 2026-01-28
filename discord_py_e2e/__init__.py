@@ -15,12 +15,12 @@ if not hasattr(sys.modules["__main__"], "bot"):
 
 from .debugger.connection import connect_to_nqn
 from .dotted_arg import Args
+from .context import Context, _ctx
 from .tag_handlers import process_tags
 from .channel import ChannelBuilder
 from . import steps
 from .setup_rabbitmq import setup_rabbitmq
 from .setup_bot import setup_bot, setup_manager
-from .context import Context, _ctx
 
 
 async def before_all(context: Context):

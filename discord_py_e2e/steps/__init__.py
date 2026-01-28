@@ -1,5 +1,6 @@
 from . import (
     channel,
+    emoji,
     given_run,
     interactions,
     message_content,
