@@ -79,6 +79,13 @@ async def buttons_exist(context: Context):
     assert not custom_ids, custom_ids
 
 
+@then("there are no buttons in the message")
+@async_run_until_complete
+async def no_buttons_exist(context: Context):
+    buttons = list(get_buttons(context.raw_bot_response))
+    assert len(buttons) == 0, f"Expected no buttons, but found: {buttons}"
+
+
 def get_buttons(raw_message: RawMessage):
     inner_components = (c for ar in raw_message["components"] for c in ar["components"])
     buttons = (c for c in inner_components if c["type"] == 2)

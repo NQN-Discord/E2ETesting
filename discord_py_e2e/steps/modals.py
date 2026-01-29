@@ -57,7 +57,7 @@ async def bot_responds_with_modal(context):
     """
     # Wait for the bot to respond with a message
     response = await context.runner_bot.wait_for(
-        "message", check=lambda m: m.author.id == context.nqn_id and "[MODAL: " in m.content, timeout=3
+        "message", check=lambda m: m.author.id == context.nqn_id and "[MODAL: " in m.content, timeout=5
     )
 
     # Extract the modal ID from the message

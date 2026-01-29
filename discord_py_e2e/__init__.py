@@ -93,5 +93,4 @@ def _reload_all_steps():
     # Fix for jetbrains behave plugin
     for mod_name, module in sys.modules.copy().items():
         if "discord_py_e2e." in mod_name:
-            print(mod_name)
             importlib.reload(module)
