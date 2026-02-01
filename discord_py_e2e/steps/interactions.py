@@ -5,7 +5,7 @@ from logging import getLogger
 
 from behave import *
 from behave.api.async_step import async_run_until_complete
-from discord import Message, Member, File
+from discord import Message, Member, File, User
 from discord.abc import GuildChannel
 
 from ..context import Context
@@ -46,7 +46,7 @@ async def _press_button(context: Context, check: Callable[[Any], bool]):
     assert matched is not None, list(get_buttons(raw_message))
     assert not matched.get("disabled", False)
     interaction = build_button_interaction(
-        context.nqn_id,
+        context.manager_bot.get_guild(context.guild.id).get_member(context.nqn_id),
         context.bot_response,
         raw_message,
         matched["custom_id"],
@@ -86,53 +86,99 @@ async def no_buttons_exist(context: Context):
     assert len(buttons) == 0, f"Expected no buttons, but found: {buttons}"
 
 
+@given('I use the context menu "{menu_name}" on {{{message_var}}}')
+@async_run_until_complete
+async def step_use_context_menu(context: Context, menu_name: str, message_var: str):
+    """
+    Uses a context menu on a message.
+    This simulates right-clicking on a message and selecting a context menu option.
+    """
+    # Get the target message
+    message = context.args[message_var]
+
+    # Build the context menu interaction
+    interaction = build_context_menu_interaction(
+        context.manager_bot.get_guild(context.guild.id).get_member(context.nqn_id),
+        message,
+        menu_name,
+        context.guild.me,
+    )
+
+    # Send the interaction to the bot
+    await context.evaluator.evaluate(run_interaction, interaction=interaction)
+
+
 def get_buttons(raw_message: RawMessage):
     inner_components = (c for ar in raw_message["components"] for c in ar["components"])
     buttons = (c for c in inner_components if c["type"] == 2)
     return buttons
 
 
-def _build_interaction_base(bot_id: int, channel: GuildChannel, me: Member, interaction_type: int) -> dict:
-    """
-    Build the base structure for an interaction.
-
-    Args:
-        bot_id: The ID of the bot
-        channel: The channel where the interaction was triggered
-        me: The member submitting the interaction
-        interaction_type: The type of interaction
-
-    Returns:
-        A base interaction object
-    """
-    user = {
-        "id": me.id,
-        "username": me.name,
-        "discriminator": me.discriminator,
-        "avatar": me._avatar,
-        "global_name": me.global_name,
-        "bot": me.bot,
-        "system": me.system,
+def _serialise_user(user: User) -> dict:
+    serialised = {
+        "id": user.id,
+        "username": user.name,
+        "discriminator": user.discriminator,
+        "avatar": user._avatar,
+        "global_name": user.global_name,
+        "bot": user.bot,
+        "system": user.system,
         "mfa_enabled": False,
-        "flags": me._flags,
-        "public_flags": me._flags,
     }
-    member = {
-        "avatar": me._avatar,
-        "user": user,
-        "nick": me.nick,
+    if hasattr(user, "_flags"):
+        serialised |= {
+            "flags": user._flags,
+            "public_flags": user._flags,
+        }
+    return serialised
+
+
+def _serialise_member(member: Member) -> dict:
+    serialised = {
+        "avatar": member._avatar,
+        "banner": None,
+        "collectibles": None,
+        "communication_disabled_until": member.timed_out_until and member.timed_out_until.isoformat(),
+        "display_name_styles": None,
+        "flags": 0,
+        "joined_at": member.joined_at.isoformat(),
+        "mute": False,
+        "nick": member.nick,
+        "pending": member.pending,
+        "permissions": str(member.guild_permissions.value),
         "premium_since": None,
-        "pending": False,
-        "communication_disabled_until": me.timed_out_until and me.timed_out_until.isoformat(),
-        "roles": list(me._roles),
-        "joined_at": me.joined_at.isoformat(),
+        "roles": list(member._roles),
+        "user": _serialise_user(member),
     }
-    if me._permissions:
-        member["permissions"] = me._permissions
+    if member._permissions:
+        serialised["permissions"] = member._permissions
+    return serialised
+
+
+def _serialise_message(message: Message) -> dict:
+    return {
+        "id": str(message.id),
+        "channel_id": str(message.channel.id),
+        "author": _serialise_user(message.author),
+        "content": message.content,
+        "timestamp": message.created_at.isoformat(),
+        "edited_timestamp": message.edited_at.isoformat() if message.edited_at else None,
+        "mention_everyone": message.mention_everyone,
+        "mentions": [],
+        "mention_roles": [],
+        "attachments": [],
+        "embeds": [],
+        "pinned": message.pinned,
+        "type": message.type.value,
+        "webhook_id": message.webhook_id,
+    }
+
+
+def _serialise_channel(channel: GuildChannel, me: Member) -> dict:
     channel_dict = {
+        "flags": 0,
         "id": str(channel.id),
         "guild_id": str(channel.guild.id),
-        "type": channel.type.value,
         "name": channel.name,
         "nsfw": channel.nsfw,
         "parent_id": str(channel.category_id),
@@ -140,19 +186,42 @@ def _build_interaction_base(bot_id: int, channel: GuildChannel, me: Member, inte
         "position": channel.position,
         "rate_limit_per_user": channel.slowmode_delay,
         "permissions": str(channel.permissions_for(me).value),
+        "type": channel.type.value,
     }
-    if hasattr(channel, "flags"):
+    if hasattr(channel, "_flags"):
         channel_dict["flags"] = channel._flags
     if hasattr(channel, "bitrate"):
         channel_dict["bitrate"] = channel.bitrate
     if hasattr(channel, "user_limit"):
         channel_dict["user_limit"] = channel.user_limit
+    if hasattr(channel, "topic"):
+        channel_dict["topic"] = channel.topic
+    return channel_dict
+
+
+def _build_interaction_base(bot: Member, channel: GuildChannel, me: Member, interaction_type: int) -> dict:
+    """
+    Build the base structure for an interaction.
+
+    Args:
+        bot: The member of the bot
+        channel: The channel where the interaction was triggered
+        me: The member submitting the interaction
+        interaction_type: The type of interaction
+
+    Returns:
+        A base interaction object
+    """
+    member = _serialise_member(me)
+    channel_dict = _serialise_channel(channel, me)
 
     return {
         "type": interaction_type,
         "id": str(1),
-        "application_id": str(bot_id),
+        "application_id": str(bot.id),
+        "app_permissions": str(channel.permissions_for(bot).value),
         "attachment_size_limit": 8_000_000,
+        "context": 0,
         "token": "token",
         "version": 1,
         "guild_id": str(channel.guild.id),
@@ -160,19 +229,18 @@ def _build_interaction_base(bot_id: int, channel: GuildChannel, me: Member, inte
         "channel_id": str(channel.id),
         "channel": channel_dict,
         "authorizing_integration_owners": {"0": 1},
-        "user": user,
         "member": member,
     }
 
 
 def build_button_interaction(
-    bot_id: int, message: Message, raw_message: RawMessage, custom_id: str, me: Member
+    bot: Member, message: Message, raw_message: RawMessage, custom_id: str, me: Member
 ) -> MessageComponentInteraction:
     """
     Build a button interaction.
 
     Args:
-        bot_id: The ID of the bot
+        bot: The bot's member
         message: The message that triggered the interaction
         raw_message: The raw message data
         custom_id: The custom ID of the button
@@ -181,7 +249,7 @@ def build_button_interaction(
     Returns:
         A button interaction object
     """
-    interaction = _build_interaction_base(bot_id, message.channel, me, 3)  # 3 = MessageComponent
+    interaction = _build_interaction_base(bot, message.channel, me, 3)  # 3 = MessageComponent
 
     # Add button-specific data
     interaction["data"] = {"component_type": 2, "custom_id": custom_id}
@@ -191,14 +259,14 @@ def build_button_interaction(
 
 
 def build_modal_interaction(
-    bot_id: int, channel: GuildChannel, raw_message: RawMessage, custom_id: str, components: list[dict], me: Member
+    bot: Member, channel: GuildChannel, custom_id: str, components: list[dict], me: Member
 ) -> dict:
     """
     Build a modal submit interaction.
 
     Args:
-        bot_id: The ID of the bot
-        channel: The channel where the modal was triggered
+        bot: The bot's member
+        channel: The channel which triggered the modal
         custom_id: The custom ID of the modal
         components: A dictionary of custom_id -> value pairs for the modal components
         me: The member submitting the interaction
@@ -206,13 +274,38 @@ def build_modal_interaction(
     Returns:
         A modal submit interaction object
     """
-    interaction = _build_interaction_base(bot_id, channel, me, 5)  # 5 = ModalSubmit
+    interaction = _build_interaction_base(bot, channel, me, 5)  # 5 = ModalSubmit
 
     interaction["data"] = {
         "custom_id": custom_id,
         "components": components,
     }
-    interaction["message"] = raw_message
+
+    return interaction
+
+
+def build_context_menu_interaction(bot: Member, message: Message, menu_name: str, me: Member) -> dict:
+    """
+    Build a context menu interaction.
+
+    Args:
+        bot: The bot's member
+        message: The message that triggered the interaction
+        menu_name: The name of the context menu
+        me: The member submitting the interaction
+
+    Returns:
+        A context menu interaction object
+    """
+    interaction = _build_interaction_base(bot, message.channel, me, 2)  # 2 = ApplicationCommand
+
+    # Add context menu specific data
+    interaction["data"] = {
+        "name": menu_name,
+        "type": 3,  # 3 = MESSAGE type context menu
+        "target_id": str(message.id),
+        "resolved": {"messages": {str(message.id): _serialise_message(message)}},
+    }
 
     return interaction
 
@@ -246,7 +339,7 @@ def patch_interaction_handler():
 
     async def _request(self, initial, message, *, files: List[File] = []):
         if "type" not in message or message["type"] == 4:
-            if getattr(self, "_should_edit_next", False):
+            if getattr(self, "_should_edit_next", False) or initial:
                 self._should_edit_next = False
                 if not self.message.flags.ephemeral and (message.get("flags", 0) & 64 != 0):
                     # Ephemeral send on top of regular send
@@ -254,8 +347,10 @@ def patch_interaction_handler():
                     return await self.bot.http.send_message(self.channel.id, params=params)
                 else:
                     assert not files
+                    assert self.message.author.id == bot.user.id
                     return await edit(self, **message)
             else:
+                assert self.message.author.id == bot.user.id
                 params = MultipartParameters(payload=message, multipart=[], files=files)
                 await self._state.http.edit_message(self.channel.id, self.message.id, params=params)
                 return
@@ -266,8 +361,12 @@ def patch_interaction_handler():
             return
         elif message["type"] == 9:
             modal_id = str(uuid.uuid4())
+
             modal_data = message["data"]
-            bot._modals[modal_id] = modal_data
+            bot._modals[modal_id] = {
+                "data": modal_data,
+                "channel_id": self.channel.id,
+            }
 
             modal_message = (
                 f"[MODAL: {modal_id}]\n>>> Data:\n```json\n{json.dumps(modal_data, indent=2, sort_keys=True)}\n```"

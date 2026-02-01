@@ -9,6 +9,7 @@ from behave import *
 from behave.api.async_step import async_run_until_complete
 
 from .interactions import run_interaction, build_modal_interaction
+from ..dotted_arg import render_template
 
 log = getLogger(__name__)
 
@@ -55,14 +56,22 @@ async def bot_responds_with_modal(context):
     """
     Check if the bot responded with a modal by looking for a message with the modal ID.
     """
+
+    def _check(m):
+        return m.author.id == context.nqn_id and "[MODAL: " in m.content
+
     # Wait for the bot to respond with a message
-    response = await context.runner_bot.wait_for(
-        "message", check=lambda m: m.author.id == context.nqn_id and "[MODAL: " in m.content, timeout=5
-    )
+    message = context.runner_bot.cached_messages[-1]
+    if not _check(message):
+        message = await context.runner_bot.wait_for(
+            "message",
+            check=_check,
+            timeout=5,
+        )
 
     # Extract the modal ID from the message
-    match = re.search(r"\[MODAL: ([^\]]+)\]", response.content)
-    assert match, f"Could not extract modal ID from message: {response.content}"
+    match = re.search(r"\[MODAL: ([^\]]+)\]", message.content)
+    assert match, f"Could not extract modal ID from message: {message.content}"
     modal_id = match.group(1)
 
     # Get the modal data from the bot
@@ -118,15 +127,16 @@ async def fill_in_modal(context):
     # Get the values from the table
     component_values = {}
     for row in context.table:
-        component_values[row["custom_id"]] = row["value"]
+        component_values[row["custom_id"]] = render_template(context, template=row["value"])
 
-    components = inject_custom_ids_to_components(context.modal_data.get("components", []), component_values)
+    channel_id = context.modal_data["channel_id"]
+
+    components = inject_custom_ids_to_components(context.modal_data["data"].get("components", []), component_values)
 
     interaction = build_modal_interaction(
-        context.nqn_id,
-        context.bot_response.channel,
-        context.raw_bot_response,
-        context.modal_data["custom_id"],
+        context.manager_bot.get_guild(context.guild.id).get_member(context.nqn_id),
+        context.runner_bot.get_channel(channel_id),
+        context.modal_data["data"]["custom_id"],
         components,
         context.guild.me,
     )

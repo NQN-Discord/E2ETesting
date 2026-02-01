@@ -159,6 +159,14 @@ async def step_channel_has_message_containing(context, channel: str, text: Args[
     assert any(text in m.content for m in messages), f"No message found in channel {channel} containing '{text}'"
 
 
+@then("{{{message_arg}}} contains {text:args}")
+@async_run_until_complete
+async def step_message_contains(context, message_arg: str, text: Args[str]):
+    message = context.args[message_arg]
+    text = text(context)
+    assert text in message.content, f"text {text!r} not found in message {message.content!r}"
+
+
 async def _get_messages_from_channel(context: Context, channel: str):
     channel_obj = context.args.get(channel)
     assert channel_obj is not None, f"No channel found with name '{channel}' in context.args"

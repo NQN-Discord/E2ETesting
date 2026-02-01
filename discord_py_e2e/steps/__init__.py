@@ -10,6 +10,7 @@ from . import (
     owner,
     permissions,
     reactions,
+    repost_message,
     responds_with_message,
     thread,
 )

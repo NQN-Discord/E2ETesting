@@ -17,3 +17,16 @@ async def step_message_is_edited(context):
         assert current_step is not None
     else:
         assert current_step > previous_step
+
+
+@then("{{{message_arg}}} is edited")
+@async_run_until_complete
+async def step_message_is_edited(context, message_arg: str):
+    def _check(_, after):
+        return after.id == message.id
+
+    message = context.args[message_arg]
+    assert message._state is context.runner_bot._connection
+    assert id(message) in [id(m) for m in context.runner_bot.cached_messages]
+    if message.edited_at is None:
+        await context.runner_bot.wait_for("message_edit", check=_check, timeout=5)

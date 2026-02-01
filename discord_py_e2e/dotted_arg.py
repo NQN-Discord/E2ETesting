@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Callable
 
 import parse
@@ -38,11 +39,11 @@ def _dotted_arg(arg: str):
 
 @parse.with_pattern(r"'.+'")
 def _dotted_args(template: str):
-    template = template.strip("'")
-    def inner(context: Context):
-        return template.format_map(_DotAccessDict(context.args))
+    return partial(render_template, template=template)
 
-    return inner
+
+def render_template(context: Context, template: str):
+    return template.strip("'").format_map(_DotAccessDict(context.args))
 
 
 behave.register_type(arg=_dotted_arg)

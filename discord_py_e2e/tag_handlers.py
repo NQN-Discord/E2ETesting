@@ -20,18 +20,18 @@ def expand_matrix_tag(scenario):
     if len(scenario.examples) < 2:
         return
 
+    _all_headers = set()
     all_headers = []
     for examples in scenario.examples:
-        assert len(examples.table.headings) == 1
-        header = examples.table.headings[0]
-        assert header not in all_headers
-        all_headers.append(header)
+        assert _all_headers & set(examples.table.headings) == set()
+        _all_headers.update(examples.table.headings)
+        all_headers.extend(examples.table.headings)
 
     tables = [examples.table for examples in scenario.examples]
 
     new_table = Table(all_headers)
     for row in itertools.product(*tables):
-        new_table.add_row(Row(headings=all_headers, cells=[r.cells[0] for r in row]))
+        new_table.add_row(Row(headings=all_headers, cells=[cell for r in row for cell in r]))
 
     scenario.examples[0].table = new_table
     scenario.examples = [scenario.examples[0]]
