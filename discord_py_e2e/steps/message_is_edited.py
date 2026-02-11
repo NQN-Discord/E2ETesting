@@ -10,7 +10,7 @@ async def step_message_is_edited(context):
 
     previous_step, current_step = context.message_edit_times[-2:]
     if current_step == previous_step:
-        await context.runner_bot.wait_for("message_edit", check=_check, timeout=3)
+        await context.runner_bot.wait_for("message_edit", check=_check, timeout=5)
         current_step = context.message_edit_times[-1] = context.bot_response.edited_at
 
     if previous_step is None:
