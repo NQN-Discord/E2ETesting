@@ -82,8 +82,10 @@ async def bot_responds_with_modal(context):
 
 def component_id_matches(component_id, test_id):
     match = CUSTOM_ID_REGEX.match(component_id)
-    assert match
-    return match.group(1) == test_id
+    if match:
+        return match.group(1) == test_id
+    else:
+        return component_id == test_id
 
 
 def inject_custom_ids_to_components(components, component_values):
@@ -110,6 +112,8 @@ def inject_custom_ids_to_components(components, component_values):
 
             if "components" in comp:
                 _inject_values(comp["components"])
+            elif "component" in comp:
+                _inject_values(comp["component"])
 
     components_copy = copy.deepcopy(components)
     _inject_values(components_copy)
