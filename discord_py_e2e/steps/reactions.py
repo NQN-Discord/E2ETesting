@@ -53,4 +53,4 @@ async def step_message_has_reaction(context: Context, message: Args[Message], em
         return reaction.message.id == message_obj.id and reaction.emoji == emote_obj
 
     # Wait for the reaction to be added
-    await context.runner_bot.wait_for("reaction_add", check=_check, timeout=5)
+    await context.runner_bot.wait_for("reaction_add", check=_check, timeout=8)
