@@ -38,6 +38,8 @@ class EvaluationClient:
         )
         self._traceback_request_ids.add(traceback_request_id)
         evaluation = pickle.loads(base64.b64decode(await self._wait_for_message(request_id)))
+        if isinstance(evaluation, Exception):
+            raise evaluation
         return evaluation
 
     async def _wait_for_message(self, request_id: int) -> Any:

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import re
+from ast import literal_eval
 from logging import getLogger
 import copy
-
 
 from behave import *
 from behave.api.async_step import async_run_until_complete
 
+from discord import ComponentType
 from .interactions import run_interaction, build_modal_interaction
-from ..dotted_arg import render_template
+from ..dotted_arg import render_template, _dotted_arg
 
 log = getLogger(__name__)
 
@@ -80,6 +81,48 @@ async def bot_responds_with_modal(context):
     context.modal_data = modal_data
 
 
+@then('the modal title is "{title}"')
+def modal_title_is(context, title):
+    assert context.modal_data is not None, "No modal data available. Did you check for a modal response first?"
+    actual_title = context.modal_data["data"]["title"]
+    assert actual_title == title, f"Expected modal title '{title}', but got '{actual_title}'"
+
+
+@then("I fill in the modal with the following information")
+@async_run_until_complete
+async def fill_in_modal(context):
+    """
+    Fill in a modal with the provided information and submit it.
+    """
+    assert context.modal_data is not None, "No modal data available. Did you check for a modal response first?"
+
+    # Get the values from the table
+    component_values = {}
+    resolved_objects = []
+    for row in context.table:
+        component_values[row["custom_id"]] = literal_eval(render_template(context, template=row["value"]))
+        if row.get("resolved"):
+            resolved_objects.append(_dotted_arg(row["resolved"])(context))
+
+    channel_id = context.modal_data["channel_id"]
+
+    components = inject_custom_ids_to_components(context.modal_data["data"].get("components", []), component_values)
+
+    interaction = build_modal_interaction(
+        bot=context.manager_bot.get_guild(context.guild.id).get_member(context.nqn_id),
+        channel=context.runner_bot.get_channel(channel_id),
+        custom_id=context.modal_data["data"]["custom_id"],
+        components=components,
+        me=context.guild.me,
+        message=context.modal_data["message"],
+        to_resolve=resolved_objects,
+    )
+
+    # Submit the modal
+    await context.evaluator.evaluate(run_interaction, interaction=interaction)
+    context.modal_data = None
+
+
 def component_id_matches(component_id, test_id):
     match = CUSTOM_ID_REGEX.match(component_id)
     if match:
@@ -108,7 +151,16 @@ def inject_custom_ids_to_components(components, component_values):
             if "custom_id" in comp:
                 for test_id, value in component_values.items():
                     if component_id_matches(comp["custom_id"], test_id):
-                        comp["value"] = value
+                        if comp["type"] in (
+                            ComponentType.user_select.value,
+                            ComponentType.role_select.value,
+                            ComponentType.channel_select.value,
+                            ComponentType.mentionable_select.value,
+                            ComponentType.checkbox_group.value,
+                        ):
+                            comp["values"] = value
+                        else:
+                            comp["value"] = value
 
             if "components" in comp:
                 _inject_values(comp["components"])
@@ -118,33 +170,3 @@ def inject_custom_ids_to_components(components, component_values):
     components_copy = copy.deepcopy(components)
     _inject_values(components_copy)
     return components_copy
-
-
-@then("I fill in the modal with the following information")
-@async_run_until_complete
-async def fill_in_modal(context):
-    """
-    Fill in a modal with the provided information and submit it.
-    """
-    assert context.modal_data is not None, "No modal data available. Did you check for a modal response first?"
-
-    # Get the values from the table
-    component_values = {}
-    for row in context.table:
-        component_values[row["custom_id"]] = render_template(context, template=row["value"])
-
-    channel_id = context.modal_data["channel_id"]
-
-    components = inject_custom_ids_to_components(context.modal_data["data"].get("components", []), component_values)
-
-    interaction = build_modal_interaction(
-        context.manager_bot.get_guild(context.guild.id).get_member(context.nqn_id),
-        context.runner_bot.get_channel(channel_id),
-        context.modal_data["data"]["custom_id"],
-        components,
-        context.guild.me,
-    )
-
-    # Submit the modal
-    await context.evaluator.evaluate(run_interaction, interaction=interaction)
-    context.modal_data = None

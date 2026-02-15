@@ -12,5 +12,6 @@ from . import (
     reactions,
     repost_message,
     responds_with_message,
+    settings,
     thread,
 )

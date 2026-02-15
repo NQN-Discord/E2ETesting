@@ -3,6 +3,7 @@ import asyncio
 import psutil
 from debugpy.server.cli import attach_to_pid, options
 from discord_py_e2e.debugger.evalutation import EvaluationClient
+from nqn_common.dpy.components.context.base import InteractionMessageProxy
 
 from ._io import DAPClient
 
@@ -27,14 +28,25 @@ def _build_state(state_type):
     return state_type(dispatch=None, handlers={}, hooks={}, http=None)
 
 
+def _get_dummy_type(base_type):
+    return type(f"_Dummy{base_type.__name__}", (), {})()
+
+
+def _build_interaction_message_proxy(channel, author, id):
+    return InteractionMessageProxy(channel, author, type("DummyCtx", (), {"id": id, "_state": None}))
+
+
 def _enable_pickling():
     import copyreg
     from discord.client import ConnectionState
     from discord.shard import AutoShardedConnectionState
     from discord import enums
     from discord.enums import Enum
+    from nqn_common.dpy.guild_cache import GuildCache
+    from nqn_common.stores.guild_settings import _State
+    from nqn_common.dpy.components.context.base import InteractionMessageProxy
 
-    from discord_py_e2e.debugger.connection import _build_state
+    from discord_py_e2e.debugger.connection import _get_dummy_type, _build_state, _build_interaction_message_proxy
 
     for enum in enums.__all__:
         enum_type = getattr(enums, enum)
@@ -42,8 +54,16 @@ def _enable_pickling():
             enum_value_type = enum_type._enum_value_cls_
             setattr(enums, enum_value_type.__name__, enum_value_type)
 
+    copyreg.pickle(
+        InteractionMessageProxy,
+        lambda proxy: (_build_interaction_message_proxy, (proxy.channel, proxy.author, proxy.id), {}),
+    )
+
     for state_type in (ConnectionState, AutoShardedConnectionState):
         copyreg.pickle(state_type, lambda state: (_build_state, (type(state),), {}))
+
+    for dummy_type in (_State, GuildCache):
+        copyreg.pickle(dummy_type, lambda dummy: (_get_dummy_type, (type(dummy),), {}))
 
 
 async def connect_to_nqn(nqn_pid: int | None = None) -> EvaluationClient:

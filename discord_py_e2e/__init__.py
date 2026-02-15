@@ -20,7 +20,7 @@ from .tag_handlers import process_tags
 from .channel import ChannelBuilder
 from . import steps
 from .setup_rabbitmq import setup_rabbitmq
-from .setup_bot import setup_bot, setup_manager
+from .setup_bot import setup_bot, setup_manager, reset_bot_config
 
 
 async def before_all(context: Context):
@@ -53,7 +53,7 @@ async def before_all(context: Context):
         context.add_cleanup(lambda: context.loop.run_until_complete(cleanup_fn(context)))
 
 
-def before_scenario(context: Context):
+async def before_scenario(context: Context):
     context.args = {}
     context.message_edit_times = []
     context.bot_response = None
@@ -61,6 +61,7 @@ def before_scenario(context: Context):
     context.command_message = None
     ChannelBuilder.reset_ctx_channel(context)
 
+    await context.evaluator.evaluate(reset_bot_config, context.guild.id)
     context.add_cleanup(lambda: context.loop.run_until_complete(asyncio.sleep(1)))
 
 

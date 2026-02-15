@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, List, Callable, Any
 from logging import getLogger
 
@@ -156,7 +157,7 @@ def _serialise_member(member: Member) -> dict:
 
 
 def _serialise_message(message: Message) -> dict:
-    return {
+    serialised = {
         "id": str(message.id),
         "channel_id": str(message.channel.id),
         "author": _serialise_user(message.author),
@@ -169,9 +170,12 @@ def _serialise_message(message: Message) -> dict:
         "attachments": [],
         "embeds": [],
         "pinned": message.pinned,
+        "tts": message.tts,
         "type": message.type.value,
-        "webhook_id": message.webhook_id,
     }
+    if message.webhook_id:
+        serialised["webhook_id"] = message.webhook_id
+    return serialised
 
 
 def _serialise_channel(channel: GuildChannel, me: Member) -> dict:
@@ -217,7 +221,7 @@ def _build_interaction_base(bot: Member, channel: GuildChannel, me: Member, inte
 
     return {
         "type": interaction_type,
-        "id": str(1),
+        "id": "1",
         "application_id": str(bot.id),
         "app_permissions": str(channel.permissions_for(bot).value),
         "attachment_size_limit": 8_000_000,
@@ -259,7 +263,14 @@ def build_button_interaction(
 
 
 def build_modal_interaction(
-    bot: Member, channel: GuildChannel, custom_id: str, components: list[dict], me: Member
+    *,
+    bot: Member,
+    channel: GuildChannel,
+    custom_id: str,
+    components: list[dict],
+    me: Member,
+    message: Message,
+    to_resolve = None,
 ) -> dict:
     """
     Build a modal submit interaction.
@@ -280,6 +291,10 @@ def build_modal_interaction(
         "custom_id": custom_id,
         "components": components,
     }
+    if isinstance(message, Message):
+        interaction["message"] = _serialise_message(message)
+    if to_resolve is not None:
+        interaction["data"]["resolved"] = _get_resolved_data(to_resolve)
 
     return interaction
 
@@ -311,7 +326,8 @@ def build_context_menu_interaction(bot: Member, message: Message, menu_name: str
 
 
 def patch_interaction_handler():
-    import uuid, json
+    import uuid, json, discord
+    from io import BytesIO
     from discord.http import MultipartParameters
 
     from nqn_common.dpy.components.context.base import InteractionContext
@@ -328,6 +344,7 @@ def patch_interaction_handler():
             embed = fields.pop("embed")
             if embed is not None:
                 fields["embeds"] = [embed]
+        fields.pop("transient", None)
 
         channel = self.message.channel
         msg = channel.get_partial_message(message_id)
@@ -366,15 +383,48 @@ def patch_interaction_handler():
             bot._modals[modal_id] = {
                 "data": modal_data,
                 "channel_id": self.channel.id,
+                "message": self.message,
             }
 
-            modal_message = (
-                f"[MODAL: {modal_id}]\n>>> Data:\n```json\n{json.dumps(modal_data, indent=2, sort_keys=True)}\n```"
+            modal_message = f"[MODAL: {modal_id}]"
+            dumped_data = json.dumps(modal_data, indent=2, sort_keys=True)
+            await self.channel.send(
+                modal_message, files=[discord.File(BytesIO(dumped_data.encode("utf-8")), filename="modal.json")]
             )
-            await self.channel.send(modal_message)
             return
         raise AssertionError("Don't know how to patch this yet!", repr(message))
 
     InteractionContext._request = _request
     InteractionContext.defer = defer
     ComponentContext.edit = edit
+
+
+def _get_resolved_data(resolved_objects: list):
+    resolved_data = defaultdict(dict)
+    for resolved_object in resolved_objects:
+        _add_resolved_data(resolved_data, resolved_object)
+    return dict(resolved_data)
+
+
+def _add_resolved_data[T](resolved_data: defaultdict[str, dict[str, Any]], param: T):
+    resolved_data[_get_resolved_type(type(param))][str(param.id)] = _get_serialiser(type(param))(param)
+
+def _get_serialiser(cls):
+    serialisers = {
+        GuildChannel: lambda channel: _serialise_channel(channel, channel.guild.me)
+    }
+
+    for base in cls.mro():
+        if base in serialisers:
+            return serialisers[base]
+    raise ValueError(f"No serialiser found for class {cls}")
+
+
+def _get_resolved_type(cls) -> str:
+    types = {
+        GuildChannel: "channels"
+    }
+    for base in cls.mro():
+        if base in types:
+            return types[base]
+    raise ValueError(f"No serialiser found for class {cls}")
