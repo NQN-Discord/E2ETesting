@@ -1,6 +1,7 @@
 from behave import *
 from behave.api.async_step import async_run_until_complete
 
+from discord import Thread
 from discord_py_e2e.context import Context
 
 
@@ -20,7 +21,10 @@ async def _set_permissions(context: Context, target_member, permissions_str: str
     permissions_dict = {permission: True for permission in permission_list}
 
     # Update the channel's permission overwrites for the target member
-    await manager_channel.set_permissions(target_member, **permissions_dict)
+    if isinstance(manager_channel, Thread):
+        await manager_channel.parent.set_permissions(target_member, **permissions_dict)
+    else:
+        await manager_channel.set_permissions(target_member, **permissions_dict)
 
 
 @given("I have permissions {permissions}")

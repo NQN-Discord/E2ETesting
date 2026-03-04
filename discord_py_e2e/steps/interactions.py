@@ -369,8 +369,7 @@ def patch_interaction_handler():
             else:
                 assert self.message.author.id == bot.user.id
                 params = MultipartParameters(payload=message, multipart=[], files=files)
-                await self._state.http.edit_message(self.channel.id, self.message.id, params=params)
-                return
+                return await self._state.http.send_message(self.channel.id, params=params)
         elif message["type"] == 5:
             return
         elif message["type"] == 6:
