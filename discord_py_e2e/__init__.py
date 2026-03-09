@@ -3,17 +3,6 @@ import importlib
 import os
 import sys
 
-if not hasattr(sys.modules["__main__"], "bot"):
-    # Allow tests with the jetbrains debugger enabled.
-    for path in sys.path[:]:
-        if "JetBrains" in path:
-            sys.path.remove(path)
-    for mod_name in sys.modules.copy():
-        if "pydev" in mod_name:
-            del sys.modules[mod_name]
-
-
-from .debugger.connection import connect_to_nqn
 from .dotted_arg import Args
 from .context import Context, _ctx
 from .tag_handlers import process_tags
@@ -24,6 +13,7 @@ from .setup_bot import setup_bot, setup_manager, reset_bot_config
 
 
 async def before_all(context: Context):
+    from .debugger.connection import connect_to_nqn
     if not context._runner.step_registry.steps["given"]:
         _reload_all_steps()
     _ctx.set(context)

@@ -1,7 +1,7 @@
 import asyncio
+import sys
 
 import psutil
-from debugpy.server.cli import attach_to_pid, options
 from discord_py_e2e.debugger.evalutation import EvaluationClient
 from nqn_common.dpy.components.context.base import InteractionMessageProxy
 
@@ -18,6 +18,12 @@ def _get_nqn_pid() -> int:
 
 
 def _attach_to_process(pid, address):
+    # Allow tests with the jetbrains debugger enabled.
+    for path in sys.path[:]:
+        if "JetBrains" in path:
+            sys.path.remove(path)
+
+    from debugpy.server.cli import attach_to_pid, options
     options.target = pid
     options.mode = "listen"
     options.address = address

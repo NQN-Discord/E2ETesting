@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Awaitable, Callable, List, Dict
 from aiohttp import web
 from behave.runner import Context as BehaveContext
 from discord import Guild, Client, Message
-from discord_py_e2e.debugger.evalutation import EvaluationClient
 
 if TYPE_CHECKING:
     from discord.guild import GuildChannel
     from discord.types.message import Message as RawMessage
     from discord_py_e2e.setup_rabbitmq import GatewayRabbit
+    from discord_py_e2e.debugger.evalutation import EvaluationClient
 
 
 _ctx = ContextVar("context")

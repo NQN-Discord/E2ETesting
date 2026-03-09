@@ -9,7 +9,7 @@ from behave import *
 from behave.api.async_step import async_run_until_complete
 
 from discord import ComponentType
-from .interactions import run_interaction, build_modal_interaction
+from .interactions import run_interaction, build_modal_interaction, deep_iter_components
 from ..dotted_arg import render_template, _dotted_arg
 
 log = getLogger(__name__)
@@ -143,30 +143,20 @@ def inject_custom_ids_to_components(components, component_values):
         Updated components with injected values
     """
 
-    def _inject_values(comp):
-        if isinstance(comp, list):
-            for item in comp:
-                _inject_values(item)
-        elif isinstance(comp, dict):
-            if "custom_id" in comp:
-                for test_id, value in component_values.items():
-                    if component_id_matches(comp["custom_id"], test_id):
-                        if comp["type"] in (
-                            ComponentType.user_select.value,
-                            ComponentType.role_select.value,
-                            ComponentType.channel_select.value,
-                            ComponentType.mentionable_select.value,
-                            ComponentType.checkbox_group.value,
-                        ):
-                            comp["values"] = value
-                        else:
-                            comp["value"] = value
-
-            if "components" in comp:
-                _inject_values(comp["components"])
-            elif "component" in comp:
-                _inject_values(comp["component"])
-
     components_copy = copy.deepcopy(components)
-    _inject_values(components_copy)
+    for component in deep_iter_components(components_copy):
+        if "custom_id" in component:
+            for test_id, value in component_values.items():
+                if component_id_matches(component["custom_id"], test_id):
+                    if component["type"] in (
+                        ComponentType.user_select.value,
+                        ComponentType.role_select.value,
+                        ComponentType.channel_select.value,
+                        ComponentType.mentionable_select.value,
+                        ComponentType.checkbox_group.value,
+                    ):
+                        component["values"] = value
+                    else:
+                        component["value"] = value
+
     return components_copy

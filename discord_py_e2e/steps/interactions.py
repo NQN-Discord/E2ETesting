@@ -40,10 +40,24 @@ async def press_button_label(context: Context, label: Callable[[Context], str]):
     await _press_button(context, lambda button: label in button["label"])
 
 
+@then("I choose the option labelled {label:args} in the select with custom id {custom_id:args}")
+@async_run_until_complete
+async def choose_select_option_label_custom_id(
+    context: Context, label: Callable[[Context], str], custom_id: Callable[[Context], str]
+):
+    label = label(context)
+    custom_id = custom_id(context)
+    await _choose_select_option(
+        context,
+        lambda select: f".{custom_id}." in select["custom_id"],
+        lambda option: label in option["label"],
+    )
+
+
 async def _press_button(context: Context, check: Callable[[Any], bool]):
     raw_message = context.raw_bot_response
     buttons = get_buttons(raw_message)
-    matched = next((button for button in buttons if check(button)), None)
+    matched = next((button for button in buttons if "custom_id" in button and check(button)), None)
     assert matched is not None, list(get_buttons(raw_message))
     assert not matched.get("disabled", False)
     interaction = build_button_interaction(
@@ -51,6 +65,32 @@ async def _press_button(context: Context, check: Callable[[Any], bool]):
         context.bot_response,
         raw_message,
         matched["custom_id"],
+        context.guild.me,
+    )
+    await context.evaluator.evaluate(run_interaction, interaction=interaction)
+
+
+async def _choose_select_option(
+    context: Context,
+    select_check: Callable[[Any], bool],
+    option_check: Callable[[Any], bool],
+):
+    raw_message = context.raw_bot_response
+    selects = get_selects(raw_message)
+    matched_select = next((select for select in selects if select_check(select)), None)
+    assert matched_select is not None, list(get_selects(raw_message))
+    assert not matched_select.get("disabled", False)
+
+    options = matched_select.get("options", [])
+    matched_option = next((option for option in options if option_check(option)), None)
+    assert matched_option is not None, options
+
+    interaction = build_select_interaction(
+        context.manager_bot.get_guild(context.guild.id).get_member(context.nqn_id),
+        context.bot_response,
+        raw_message,
+        matched_select["custom_id"],
+        [matched_option["value"]],
         context.guild.me,
     )
     await context.evaluator.evaluate(run_interaction, interaction=interaction)
@@ -66,7 +106,7 @@ async def buttons_exist(context: Context):
     custom_ids = [row["custom_id"] for row in context.table]
     for button in buttons:
         for cid in custom_ids[:]:
-            if cid in button["custom_id"]:
+            if cid in button.get("custom_id", ()):
                 custom_ids.remove(cid)
                 button_map[cid] = button
     if "disabled" in context.table.headings:
@@ -110,9 +150,13 @@ async def step_use_context_menu(context: Context, menu_name: str, message_var: s
 
 
 def get_buttons(raw_message: RawMessage):
-    inner_components = (c for ar in raw_message["components"] for c in ar["components"])
-    buttons = (c for c in inner_components if c["type"] == 2)
+    buttons = (c for c in  deep_iter_components(raw_message["components"]) if c["type"] == 2)
     return buttons
+
+
+def get_selects(raw_message: RawMessage):
+    selects = (c for c in deep_iter_components(raw_message["components"]) if c["type"] == 3)
+    return selects
 
 
 def _serialise_user(user: User) -> dict:
@@ -257,6 +301,41 @@ def build_button_interaction(
 
     # Add button-specific data
     interaction["data"] = {"component_type": 2, "custom_id": custom_id}
+    interaction["message"] = raw_message
+
+    return interaction
+
+
+def build_select_interaction(
+    bot: Member,
+    message: Message,
+    raw_message: RawMessage,
+    custom_id: str,
+    values: list[str],
+    me: Member,
+) -> MessageComponentInteraction:
+    """
+    Build a select interaction.
+
+    Args:
+        bot: The bot's member
+        message: The message that triggered the interaction
+        raw_message: The raw message data
+        custom_id: The custom ID of the select menu
+        values: The values selected
+        me: The member submitting the interaction
+
+    Returns:
+        A select interaction object
+    """
+    interaction = _build_interaction_base(bot, message.channel, me, 3)  # 3 = MessageComponent
+
+    # Add select-specific data
+    interaction["data"] = {
+        "component_type": 3,
+        "custom_id": custom_id,
+        "values": values,
+    }
     interaction["message"] = raw_message
 
     return interaction
@@ -427,3 +506,16 @@ def _get_resolved_type(cls) -> str:
         if base in types:
             return types[base]
     raise ValueError(f"No serialiser found for class {cls}")
+
+
+def deep_iter_components(comp):
+    if isinstance(comp, list):
+        for item in comp:
+            yield from deep_iter_components(item)
+    elif isinstance(comp, dict):
+        yield comp
+
+        if "components" in comp:
+            yield from deep_iter_components(comp["components"])
+        elif "component" in comp:
+            yield from deep_iter_components(comp["component"])
