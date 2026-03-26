@@ -33,6 +33,4 @@ async def reset_bot_config(guild_id: int):
 
     # Reset guild settings to defaults.
     guild_settings = bot.global_ctx.guild_settings.default_settings(guild)
-    await bot.rabbit.send_personas(guild.id, guild_settings.enable_personas)
-    await bot.rabbit.send_prefix(guild.id, guild_settings.prefix)
     await guild_settings.save()
