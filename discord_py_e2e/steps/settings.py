@@ -1,4 +1,6 @@
-from behave import then
+from ast import literal_eval
+
+from behave import then, given
 from behave.api.async_step import async_run_until_complete
 
 from discord import TextChannel
@@ -14,6 +16,18 @@ async def get_guild_settings(guild_id: int) -> GuildSettings:
 
     guild_settings = await bot.global_ctx.guild_settings.get_settings(guild)
     return guild_settings
+
+async def set_guild_settings(guild_id, features: list[str]) -> None:
+    from __main__ import bot
+
+    guild = bot.get_guild(guild_id)
+    await guild.all()
+
+    # TODO - Does not disable features.
+    guild_settings = await bot.global_ctx.guild_settings.get_settings(guild)
+    for feature in features:
+        setattr(guild_settings, feature, True)
+    await guild_settings.save()
 
 
 @then("the bot's prefix is now {expected_prefix:args}")
@@ -42,3 +56,11 @@ async def step_bot_audit_channel_is_set(context, channel: Args[TextChannel]):
 
     guild_settings = await context.evaluator.evaluate(get_guild_settings, context.guild.id)
     assert guild_settings.audit_channel == channel.id
+
+
+@given("the server settings have enabled features {features}")
+@async_run_until_complete
+async def step_server_settings_set(context, features: str):
+    features = literal_eval(features)
+
+    await context.evaluator.evaluate(set_guild_settings, context.guild.id, features)
