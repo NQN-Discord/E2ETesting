@@ -17,6 +17,7 @@ async def get_guild_settings(guild_id: int) -> GuildSettings:
     guild_settings = await bot.global_ctx.guild_settings.get_settings(guild)
     return guild_settings
 
+
 async def set_guild_settings(guild_id, features: list[str]) -> None:
     from __main__ import bot
 

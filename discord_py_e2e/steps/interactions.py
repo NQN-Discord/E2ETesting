@@ -150,7 +150,7 @@ async def step_use_context_menu(context: Context, menu_name: str, message_var: s
 
 
 def get_buttons(raw_message: RawMessage):
-    buttons = (c for c in  deep_iter_components(raw_message["components"]) if c["type"] == 2)
+    buttons = (c for c in deep_iter_components(raw_message["components"]) if c["type"] == 2)
     return buttons
 
 
@@ -349,7 +349,7 @@ def build_modal_interaction(
     components: list[dict],
     me: Member,
     message: Message,
-    to_resolve = None,
+    to_resolve=None,
 ) -> dict:
     """
     Build a modal submit interaction.
@@ -487,10 +487,9 @@ def _get_resolved_data(resolved_objects: list):
 def _add_resolved_data[T](resolved_data: defaultdict[str, dict[str, Any]], param: T):
     resolved_data[_get_resolved_type(type(param))][str(param.id)] = _get_serialiser(type(param))(param)
 
+
 def _get_serialiser(cls):
-    serialisers = {
-        GuildChannel: lambda channel: _serialise_channel(channel, channel.guild.me)
-    }
+    serialisers = {GuildChannel: lambda channel: _serialise_channel(channel, channel.guild.me)}
 
     for base in cls.mro():
         if base in serialisers:
@@ -499,9 +498,7 @@ def _get_serialiser(cls):
 
 
 def _get_resolved_type(cls) -> str:
-    types = {
-        GuildChannel: "channels"
-    }
+    types = {GuildChannel: "channels"}
     for base in cls.mro():
         if base in types:
             return types[base]

@@ -14,6 +14,7 @@ from .setup_bot import setup_bot, setup_manager, reset_bot_config
 
 async def before_all(context: Context):
     from .debugger.connection import connect_to_nqn
+
     if not context._runner.step_registry.steps["given"]:
         _reload_all_steps()
     _ctx.set(context)

@@ -7,7 +7,6 @@ from discord_py_e2e import ChannelBuilder
 from discord_py_e2e.context import Context
 from discord_py_e2e.steps.thread import _get_thread
 
-
 if TYPE_CHECKING:
     from discord.guild import GuildChannel
 

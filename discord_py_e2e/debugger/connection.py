@@ -24,6 +24,7 @@ def _attach_to_process(pid, address):
             sys.path.remove(path)
 
     from debugpy.server.cli import attach_to_pid, options
+
     options.target = pid
     options.mode = "listen"
     options.address = address
