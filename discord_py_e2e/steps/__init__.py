@@ -3,6 +3,7 @@ from . import (
     channel,
     emoji,
     given_run,
+    guild_analytics,
     interactions,
     message_content,
     message_is_edited,

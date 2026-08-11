@@ -35,3 +35,6 @@ async def reset_bot_config(guild_id: int):
     guild_settings = bot.global_ctx.guild_settings.default_settings(guild)
     guild_settings._original = {}
     await guild_settings.save()
+
+    # Reset analytics
+    bot._guild_analytics = []

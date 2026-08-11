@@ -6,6 +6,16 @@ from behave.api.async_step import async_run_until_complete
 from discord_py_e2e.context import Context
 
 
+@given("error messages are allowed")
+def step_error_messages_are_allowed(context):
+    context.allow_error_messages = True
+
+
+@given("error messages are not allowed")
+def step_error_messages_are_not_allowed(context):
+    context.allow_error_messages = False
+
+
 @then("the bot responds with a message")
 @async_run_until_complete
 async def step_bot_responds(context):
@@ -34,7 +44,8 @@ async def step_bot_responds(context):
     logging.debug(f"Raw message content: {raw_msg_with_components!r}")
 
     if response.content and "an error occurred whilst processing your command" in response.content.lower():
-        raise AssertionError(f"Test failed: Bot response contains an exception message: '{response.content}'")
+        if not context.allow_error_messages:
+            raise AssertionError(f"Test failed: Bot response contains an exception message: '{response.content}'")
 
     context.bot_response = response
     context.raw_bot_response = raw_msg_with_components

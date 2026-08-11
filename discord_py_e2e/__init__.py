@@ -32,7 +32,10 @@ async def before_all(context: Context):
     )
     context.guild = context.runner_bot.get_guild(int(os.environ["GUILD_ID"]))
 
-    await evaluator.evaluate(steps.interactions.patch_interaction_handler)
+    await asyncio.gather(
+        evaluator.evaluate(steps.interactions.patch_interaction_handler),
+        evaluator.evaluate(steps.guild_analytics.patch_guild_analytics_handler),
+    )
 
     context.bot_response = None
     context.raw_bot_response = None
@@ -50,6 +53,7 @@ async def before_scenario(context: Context):
     context.bot_response = None
     context.raw_bot_response = None
     context.command_message = None
+    context.allow_error_messages = False
     ChannelBuilder.reset_ctx_channel(context)
 
     await context.evaluator.evaluate(reset_bot_config, context.guild.id)

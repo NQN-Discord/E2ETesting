@@ -27,6 +27,7 @@ class Context(BehaveContext):
     manager_bot: Client
     runner_bot: Client
     nqn_id: int
+    allow_error_messages: bool
     evaluator: EvaluationClient
 
     webserver: web.Application
