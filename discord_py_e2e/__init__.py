@@ -76,7 +76,8 @@ def _add_traceback_handler(context: Context):
 
 
 def _traceback_handler(context: Context, traceback: str):
-    context.abort("Failed due to traceback")
+    if not context.allow_error_messages:
+        context.abort("Failed due to traceback")
 
 
 def _get_nqn_id() -> int:
