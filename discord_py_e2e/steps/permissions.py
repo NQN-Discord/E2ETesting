@@ -27,6 +27,7 @@ async def _set_permissions(context: Context, target_member, permissions_str: str
         await manager_channel.set_permissions(target_member, **permissions_dict)
 
 
+@given("I have permission {permissions}")
 @given("I have permissions {permissions}")
 @async_run_until_complete
 async def step_have_permissions(context: Context, permissions: str):
@@ -45,15 +46,7 @@ async def step_have_permissions(context: Context, permissions: str):
     await _set_permissions(context, runner_member, permissions, context.channel)
 
 
-@given("I have permission {permission}")
-@async_run_until_complete
-async def step_have_permission(context: Context, permission: str):
-    """
-    Give the user a specific permission in the current channel.
-    """
-    await step_have_permissions(context, permission)
-
-
+@given("the bot has permission {permissions}")
 @given("the bot has permissions {permissions}")
 @async_run_until_complete
 async def step_bot_has_permissions(context: Context, permissions: str):
@@ -72,15 +65,7 @@ async def step_bot_has_permissions(context: Context, permissions: str):
     await _set_permissions(context, nqn_member, permissions, context.channel)
 
 
-@given("the bot has permission {permission}")
-@async_run_until_complete
-async def step_bot_has_permission(context: Context, permission: str):
-    """
-    Give the bot a specific permission in the current channel.
-    """
-    await step_bot_has_permissions(context, permission)
-
-
+@given("in channel {{{channel_name}}} I have permission {permissions}")
 @given("in channel {{{channel_name}}} I have permissions {permissions}")
 @async_run_until_complete
 async def step_have_permissions_in_channel(context: Context, channel_name: str, permissions: str):
@@ -102,15 +87,7 @@ async def step_have_permissions_in_channel(context: Context, channel_name: str, 
     await _set_permissions(context, runner_member, permissions, target_channel)
 
 
-@given("in channel {{{channel_name}}} I have permission {permission}")
-@async_run_until_complete
-async def step_have_permission_in_channel(context: Context, channel_name: str, permission: str):
-    """
-    Give the user a specific permission in a specific channel.
-    """
-    await step_have_permissions_in_channel(context, channel_name, permission)
-
-
+@given("in channel {{{channel_name}}} the bot has permission {permissions}")
 @given("in channel {{{channel_name}}} the bot has permissions {permissions}")
 @async_run_until_complete
 async def step_bot_has_permissions_in_channel(context: Context, channel_name: str, permissions: str):
@@ -130,12 +107,3 @@ async def step_bot_has_permissions_in_channel(context: Context, channel_name: st
 
     # Set the permissions
     await _set_permissions(context, nqn_member, permissions, target_channel)
-
-
-@given("in channel {{{channel_name}}} the bot has permission {permission}")
-@async_run_until_complete
-async def step_bot_has_permission_in_channel(context: Context, channel_name: str, permission: str):
-    """
-    Give the bot a specific permission in a specific channel.
-    """
-    await step_bot_has_permissions_in_channel(context, channel_name, permission)
